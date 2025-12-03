@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { FormData, Preset, Scene } from '../types';
-import { TrashIcon, LoaderIcon, PlayIcon, UploadIcon } from './Icons';
+import { TrashIcon, LoaderIcon } from './Icons';
 import Results from './Results';
 
 interface GeneratorTabProps {

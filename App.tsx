@@ -9,9 +9,9 @@ import React, {
 import { GoogleGenAI, Type } from '@google/genai';
 import * as XLSX from 'xlsx';
 import CryptoJS from 'crypto-js';
-import { Scene, FormData, ActiveTab, VideoJob, JobStatus, TrackedFile, ApiKey, AppConfig, Preset, UploadedImage } from './types';
+import { Scene, FormData, ActiveTab, VideoJob, JobStatus, TrackedFile, ApiKey, AppConfig, Preset } from './types';
 import { fashionSystemPrompt } from './constants';
-import { LoaderIcon, KeyIcon, ChartIcon, ShieldIcon, VideoIcon, FolderIcon } from './components/Icons';
+import { LoaderIcon, KeyIcon, ChartIcon, ShieldIcon } from './components/Icons';
 
 // Components
 import Activation from './components/Activation';
@@ -404,7 +404,7 @@ const App: React.FC = () => {
     userPrompt += `\n- Total Scenes: ${sceneCount}`;
     userPrompt += `\n- Images Provided: ${formData.fashionImages.length}`;
     
-    formData.fashionImages.forEach((img, idx) => {
+    formData.fashionImages.forEach((_img, idx) => {
         let role = "Reference";
         if (idx === 0) role = "MODEL (Img 1)";
         if (idx === 1) role = "OUTFIT (Img 2)";

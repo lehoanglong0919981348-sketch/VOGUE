@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { JobStatus, TrackedFile, VideoJob } from '../types';
-import { UploadIcon, RetryIcon, ExternalLinkIcon, FolderIcon, PlayIcon, TrashIcon, VideoIcon, LoaderIcon, CopyIcon, CogIcon } from './Icons';
+import { RetryIcon, ExternalLinkIcon, FolderIcon, TrashIcon, VideoIcon, LoaderIcon, CopyIcon, CogIcon } from './Icons';
 
 interface TrackerTabProps {
     feedback: { type: 'error' | 'success' | 'info', message: string } | null;
@@ -178,13 +178,16 @@ const TrackerTab: React.FC<TrackerTabProps> = (props) => {
                                     <button onClick={() => handleOpenFolder(currentFile.path)} className="text-gray-400 hover:text-black text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition">
                                         THƯ MỤC
                                     </button>
+                                    <button onClick={() => handleCopyPath(getFolderPath(currentFile.path))} className="text-gray-400 hover:text-black transition" title="Copy Folder Path">
+                                        <CopyIcon className="w-3 h-3"/>
+                                    </button>
                                 </div>
                             </div>
                             
                             <div className="flex-1 overflow-hidden relative">
                                 <div className="absolute inset-0 overflow-y-auto custom-scrollbar">
                                     <table className="w-full text-black">
-                                        <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] font-bold tracking-widest sticky top-0 z-10 border-b border-gray-200">
+                                        <thead className="bg-gray-5 text-gray-500 uppercase text-[10px] font-bold tracking-widest sticky top-0 z-10 border-b border-gray-200">
                                             <tr>
                                                 <th className="px-8 py-4 text-left font-normal w-24">ID</th>
                                                 <th className="px-8 py-4 text-left font-normal w-32">TRẠNG THÁI</th>
