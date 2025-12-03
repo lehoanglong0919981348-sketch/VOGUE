@@ -468,9 +468,9 @@ const App: React.FC = () => {
       const img3 = formData.fashionImages[2] ? (formData.fashionImages[2].file as any).path : '';
 
       // Determine TYPE_VIDEO based on image uploads
-      // If ANY image slot has a file, we treat it as I2V logic
+      // If ANY image slot has a file, we treat it as IN2V logic
       const hasImages = !!img1 || !!img2 || !!img3;
-      const typeVideoValue = hasImages ? 'I2V' : '';
+      const typeVideoValue = hasImages ? 'IN2V' : '';
 
       const dataForTracker: VideoJob[] = generatedScenes.map((p, index) => ({
           id: `Job_${index + 1}`,
