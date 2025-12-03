@@ -53,7 +53,7 @@ const GeneratorTab: React.FC<GeneratorTabProps> = (props) => {
         lastCombinedVideoPath, handlePlayVideo
     } = props;
 
-    // SMART LOGIC: Check for existence of specific images
+    // SMART LOGIC: Check for existence of specific images to lock fields
     const hasModelImage = !!formData.fashionImages[0];   // Image 1 overrides Model Demographic
     const hasOutfitImage = !!formData.fashionImages[1];  // Image 2 overrides Fashion Style
     const hasSettingImage = !!formData.fashionImages[2]; // Image 3 overrides Setting
@@ -115,8 +115,8 @@ const GeneratorTab: React.FC<GeneratorTabProps> = (props) => {
                                             <div className="absolute inset-0 bg-white/80 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
                                                  <button onClick={() => handleRemoveFashionImage(index)} className="text-black hover:text-red-500 transition"><TrashIcon className="w-6 h-6"/></button>
                                             </div>
-                                            <div className="absolute bottom-0 right-0 bg-black text-white text-[10px] font-bold px-2 py-1">
-                                                LOCKED
+                                            <div className="absolute bottom-0 right-0 bg-black text-white text-[10px] font-bold px-2 py-1 flex items-center gap-1">
+                                                <LockIcon className="w-3 h-3 text-[#D4AF37]" /> LOCKED
                                             </div>
                                         </>
                                     ) : (
@@ -159,7 +159,7 @@ const GeneratorTab: React.FC<GeneratorTabProps> = (props) => {
                                     Phong Cách
                                 </label>
                                 {hasOutfitImage && (
-                                    <div className="flex items-center gap-1 bg-[#D4AF37] text-black px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                                    <div className="flex items-center gap-1 bg-[#D4AF37] text-black px-2 py-1 text-[10px] font-bold uppercase tracking-wider">
                                         <LockIcon className="w-3 h-3" /> THEO ẢNH 02
                                     </div>
                                 )}
@@ -169,9 +169,10 @@ const GeneratorTab: React.FC<GeneratorTabProps> = (props) => {
                                 value={hasOutfitImage ? "LOCKED" : formData.fashionStyle} 
                                 onChange={handleInputChange}
                                 disabled={hasOutfitImage}
+                                className={hasOutfitImage ? "opacity-100 bg-gray-100 font-bold" : ""}
                             >
                                 {hasOutfitImage ? (
-                                     <option value="LOCKED">Đã khóa: Sử dụng Ảnh 02</option>
+                                     <option value="LOCKED">Đã khóa: Theo ảnh trang phục</option>
                                 ) : (
                                     <>
                                         <option value="High Fashion / Editorial" className="bg-white text-black">Thời trang cao cấp (High Fashion)</option>
@@ -192,7 +193,7 @@ const GeneratorTab: React.FC<GeneratorTabProps> = (props) => {
                                     Nhân Vật
                                 </label>
                                 {hasModelImage && (
-                                    <div className="flex items-center gap-1 bg-[#D4AF37] text-black px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                                    <div className="flex items-center gap-1 bg-[#D4AF37] text-black px-2 py-1 text-[10px] font-bold uppercase tracking-wider">
                                         <LockIcon className="w-3 h-3" /> THEO ẢNH 01
                                     </div>
                                 )}
@@ -202,9 +203,10 @@ const GeneratorTab: React.FC<GeneratorTabProps> = (props) => {
                                 value={hasModelImage ? "LOCKED" : formData.modelDemographic} 
                                 onChange={handleInputChange}
                                 disabled={hasModelImage}
+                                className={hasModelImage ? "opacity-100 bg-gray-100 font-bold" : ""}
                             >
                                 {hasModelImage ? (
-                                    <option value="LOCKED">Đã khóa: Sử dụng Ảnh 01</option>
+                                    <option value="LOCKED">Đã khóa: Theo ảnh người mẫu</option>
                                 ) : (
                                     <>
                                         <option value="Female Model" className="bg-white text-black">Người mẫu Nữ</option>
@@ -223,7 +225,7 @@ const GeneratorTab: React.FC<GeneratorTabProps> = (props) => {
                                     Bối Cảnh
                                 </label>
                                 {hasSettingImage && (
-                                    <div className="flex items-center gap-1 bg-[#D4AF37] text-black px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                                    <div className="flex items-center gap-1 bg-[#D4AF37] text-black px-2 py-1 text-[10px] font-bold uppercase tracking-wider">
                                         <LockIcon className="w-3 h-3" /> THEO ẢNH 03
                                     </div>
                                 )}
@@ -233,9 +235,10 @@ const GeneratorTab: React.FC<GeneratorTabProps> = (props) => {
                                 value={hasSettingImage ? "LOCKED" : formData.setting} 
                                 onChange={handleInputChange}
                                 disabled={hasSettingImage}
+                                className={hasSettingImage ? "opacity-100 bg-gray-100 font-bold" : ""}
                             >
                                 {hasSettingImage ? (
-                                     <option value="LOCKED">Đã khóa: Sử dụng Ảnh 03</option>
+                                     <option value="LOCKED">Đã khóa: Theo ảnh bối cảnh</option>
                                 ) : (
                                     <>
                                         <option value="Studio / Minimalist" className="bg-white text-black">Studio / Phông trơn</option>

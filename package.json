@@ -9,7 +9,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "start": "npm run build && electron .",
-    "dist": "npm run build && electron-builder --publish always"
+    "dist": "npm run build && electron-builder"
   },
   "author": "V-Fashion Team",
   "license": "UNLICENSED",
@@ -24,23 +24,37 @@
   },
   "devDependencies": {
     "@types/crypto-js": "^4.2.2",
-    "@types/react": "^18.2.48",
-    "@types/react-dom": "^18.2.18",
+    "@types/react": "^18.2.64",
+    "@types/react-dom": "^18.2.21",
     "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.18",
     "electron": "^29.1.0",
     "electron-builder": "^24.13.3",
-    "typescript": "^5.3.3",
-    "vite": "^5.0.12"
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.2.2",
+    "vite": "^5.1.4"
   },
   "build": {
     "appId": "com.vfashion.app",
     "productName": "V-Fashion",
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "lehoanglong0919981348-sketch",
-        "repo": "v-fashion"
-      }
-    ]
+    "files": [
+      "dist/**/*",
+      "main.js",
+      "package.json",
+      "metadata.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
   }
 }
