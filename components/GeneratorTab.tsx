@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { FormData, Preset, Scene } from '../types';
 import { TrashIcon, LoaderIcon, LockIcon } from './Icons';
@@ -56,6 +55,7 @@ const GeneratorTab: React.FC<GeneratorTabProps> = (props) => {
 
     // SMART LOGIC: Check for existence of specific images
     const hasModelImage = !!formData.fashionImages[0];   // Image 1 overrides Model Demographic
+    const hasOutfitImage = !!formData.fashionImages[1];  // Image 2 overrides Fashion Style
     const hasSettingImage = !!formData.fashionImages[2]; // Image 3 overrides Setting
 
     const getImageLabel = (index: number) => {
@@ -152,16 +152,36 @@ const GeneratorTab: React.FC<GeneratorTabProps> = (props) => {
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-                        {/* FASHION STYLE - ALWAYS ACTIVE (Sets the vibe) */}
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Phong Cách</label>
-                            <ModernSelect name="fashionStyle" value={formData.fashionStyle} onChange={handleInputChange}>
-                                <option value="High Fashion / Editorial" className="bg-white text-black">Thời trang cao cấp (High Fashion)</option>
-                                <option value="Streetwear / Urban" className="bg-white text-black">Đường phố (Streetwear)</option>
-                                <option value="Minimalist / Chic" className="bg-white text-black">Tối giản (Minimalist)</option>
-                                <option value="Vintage / Retro" className="bg-white text-black">Cổ điển (Vintage)</option>
-                                <option value="Sportswear / Active" className="bg-white text-black">Thể thao (Sportswear)</option>
-                                <option value="Avant-Garde" className="bg-white text-black">Phá cách (Avant-Garde)</option>
+                        {/* FASHION STYLE - SMART LOCK */}
+                        <div className="relative">
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest">
+                                    Phong Cách
+                                </label>
+                                {hasOutfitImage && (
+                                    <div className="flex items-center gap-1 bg-[#D4AF37] text-black px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                                        <LockIcon className="w-3 h-3" /> THEO ẢNH 02
+                                    </div>
+                                )}
+                            </div>
+                            <ModernSelect 
+                                name="fashionStyle" 
+                                value={hasOutfitImage ? "LOCKED" : formData.fashionStyle} 
+                                onChange={handleInputChange}
+                                disabled={hasOutfitImage}
+                            >
+                                {hasOutfitImage ? (
+                                     <option value="LOCKED">Đã khóa: Sử dụng Ảnh 02</option>
+                                ) : (
+                                    <>
+                                        <option value="High Fashion / Editorial" className="bg-white text-black">Thời trang cao cấp (High Fashion)</option>
+                                        <option value="Streetwear / Urban" className="bg-white text-black">Đường phố (Streetwear)</option>
+                                        <option value="Minimalist / Chic" className="bg-white text-black">Tối giản (Minimalist)</option>
+                                        <option value="Vintage / Retro" className="bg-white text-black">Cổ điển (Vintage)</option>
+                                        <option value="Sportswear / Active" className="bg-white text-black">Thể thao (Sportswear)</option>
+                                        <option value="Avant-Garde" className="bg-white text-black">Phá cách (Avant-Garde)</option>
+                                    </>
+                                )}
                             </ModernSelect>
                         </div>
 
