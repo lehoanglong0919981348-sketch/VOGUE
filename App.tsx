@@ -1,4 +1,3 @@
-
 import React, {
   useState,
   useCallback,
@@ -373,33 +372,28 @@ const App: React.FC = () => {
     if (!activeApiKey) { setFeedback({ type: 'error', message: 'Yêu cầu API Key.' }); setIsManagingKeys(true); return; }
     setIsLoading(true); setFeedback(null); setGeneratedScenes([]);
 
-    // Conflict Resolution Logic
-    // If Image 1 (Model) exists, ignore the Model Dropdown text
-    const hasModelImage = !!formData.fashionImages[0];
-    const modelDescription = hasModelImage ? "USE UPLOADED IMAGE 1 AS MODEL REFERENCE" : formData.modelDemographic;
-
-    // If Image 3 (Setting) exists, ignore the Setting Dropdown text
-    const hasSettingImage = !!formData.fashionImages[2];
-    const settingDescription = hasSettingImage ? "USE UPLOADED IMAGE 3 AS SETTING REFERENCE" : formData.setting;
-
     let userPrompt = `Create a Fashion Video Script (Ingredients Mode).`;
     userPrompt += `\n**Creative Idea / Theme:** "${formData.idea.trim() || 'Showcase the collection'}"`;
     userPrompt += `\n**Specs:**`;
     userPrompt += `\n- Fashion Style: ${formData.fashionStyle}`;
-    userPrompt += `\n- Model Type: ${modelDescription}`;
-    userPrompt += `\n- Setting/Environment: ${settingDescription}`;
     userPrompt += `\n- Camera Mood: ${formData.cameraMood}`;
     userPrompt += `\n- Total Scenes: ${formData.sceneCount}`;
-    userPrompt += `\n- Images Provided: ${formData.fashionImages.filter(i => i).length}`;
     
-    formData.fashionImages.forEach((_img, idx) => {
-        if (!_img) return;
-        let role = "Reference";
-        if (idx === 0) role = "MODEL (Img 1) - STRICT REFERENCE";
-        if (idx === 1) role = "OUTFIT (Img 2) - STRICT REFERENCE";
-        if (idx === 2) role = "SETTING (Img 3) - STRICT REFERENCE";
-        userPrompt += `\n- Image Slot ${idx+1}: ${role}`;
-    });
+    // Explicitly map inputs to the strict roles
+    const img1 = formData.fashionImages[0];
+    const img2 = formData.fashionImages[1];
+    const img3 = formData.fashionImages[2];
+
+    if (img1) userPrompt += `\n- Image 1 (Slot 0): REQUIRED MODEL FACE/IDENTITY source.`;
+    else userPrompt += `\n- Image 1: Not provided (Generate model based on: ${formData.modelDemographic})`;
+
+    if (img2) userPrompt += `\n- Image 2 (Slot 1): REQUIRED OUTFIT source.`;
+    else userPrompt += `\n- Image 2: Not provided (Generate outfit based on style)`;
+
+    if (img3) userPrompt += `\n- Image 3 (Slot 2): REQUIRED SETTING source.`;
+    else userPrompt += `\n- Image 3: Not provided (Generate setting based on: ${formData.setting})`;
+
+    userPrompt += `\n\nINSTRUCTION: Ensure the Model from Img 1 is wearing the Outfit from Img 2 inside the Setting from Img 3.`;
 
     const parts: any[] = [{ text: userPrompt }];
     
@@ -706,19 +700,19 @@ const App: React.FC = () => {
         {/* Header */}
         <header className="flex-none h-20 border-b border-gray-200 bg-white flex items-center justify-between px-8 z-50">
             <div className="flex items-center gap-4">
-                <h1 className="text-2xl font-serif font-bold tracking-tighter">PROMPT PRO <span className="text-gray-400 font-sans text-xs tracking-widest ml-2">BESC EDITION</span></h1>
+                <h1 className="text-3xl font-serif font-bold tracking-tighter">V-FASHION</h1>
             </div>
 
-            <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-none">
+            <div className="flex items-center gap-2">
                 <button 
                     onClick={() => setActiveTab('generator')}
-                    className={`px-6 py-2 text-xs font-bold uppercase tracking-widest transition-colors ${activeTab === 'generator' ? 'bg-white shadow-sm text-black' : 'text-gray-400 hover:text-gray-600'}`}
+                    className={`px-8 py-3 text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'generator' ? 'bg-black text-white' : 'text-gray-400 hover:text-black hover:bg-gray-50'}`}
                 >
                     Tạo Kịch Bản
                 </button>
                 <button 
                     onClick={() => setActiveTab('tracker')}
-                    className={`px-6 py-2 text-xs font-bold uppercase tracking-widest transition-colors ${activeTab === 'tracker' ? 'bg-white shadow-sm text-black' : 'text-gray-400 hover:text-gray-600'}`}
+                    className={`px-8 py-3 text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'tracker' ? 'bg-black text-white' : 'text-gray-400 hover:text-black hover:bg-gray-50'}`}
                 >
                     Theo Dõi
                 </button>
@@ -726,15 +720,15 @@ const App: React.FC = () => {
 
             <div className="flex items-center gap-6">
                  {/* Stats Button */}
-                 <button onClick={() => setShowStats(true)} className="text-gray-400 hover:text-black transition">
+                 <button onClick={() => setShowStats(true)} className="text-gray-400 hover:text-black transition transform hover:scale-110">
                     <ChartIcon className="w-5 h-5" />
                  </button>
                  {/* Key Manager Button */}
-                 <button onClick={() => setIsManagingKeys(true)} className="text-gray-400 hover:text-black transition">
+                 <button onClick={() => setIsManagingKeys(true)} className="text-gray-400 hover:text-black transition transform hover:scale-110">
                     <KeyIcon className="w-5 h-5" />
                  </button>
                  {/* Admin Button */}
-                 <button onClick={() => setShowAdminLogin(true)} className="text-gray-400 hover:text-black transition">
+                 <button onClick={() => setShowAdminLogin(true)} className="text-gray-400 hover:text-black transition transform hover:scale-110">
                     <ShieldIcon className="w-5 h-5" />
                  </button>
             </div>

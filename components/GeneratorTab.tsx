@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { FormData, Preset, Scene } from '../types';
-import { TrashIcon, LoaderIcon } from './Icons';
+import { TrashIcon, LoaderIcon, LockIcon } from './Icons';
 import Results from './Results';
 
 interface GeneratorTabProps {
@@ -30,16 +30,16 @@ interface GeneratorTabProps {
 }
 
 const ModernInput = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
-    <input {...props} className="w-full bg-transparent border-b border-gray-300 focus:border-black p-2 text-black placeholder-gray-400 focus:outline-none transition-colors font-mono text-sm" />
+    <input {...props} className="w-full bg-transparent border-b-2 border-gray-200 focus:border-black p-2 text-black placeholder-gray-400 focus:outline-none transition-colors font-mono text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed" />
 );
 
 const ModernTextArea = (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
-    <textarea {...props} className="w-full bg-transparent border border-gray-300 focus:border-black p-3 text-black placeholder-gray-400 focus:outline-none transition-colors font-mono text-sm resize-none rounded-none" />
+    <textarea {...props} className="w-full bg-transparent border-2 border-gray-200 focus:border-black p-3 text-black placeholder-gray-400 focus:outline-none transition-colors font-mono text-sm resize-none rounded-none disabled:opacity-50 disabled:cursor-not-allowed" />
 );
 
 const ModernSelect = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => (
     <div className="relative">
-        <select {...props} className="w-full bg-transparent border-b border-gray-300 focus:border-black p-2 text-black focus:outline-none transition-colors font-mono text-sm appearance-none cursor-pointer rounded-none">
+        <select {...props} className="w-full bg-transparent border-b-2 border-gray-200 focus:border-black p-2 text-black focus:outline-none transition-colors font-mono text-sm appearance-none cursor-pointer rounded-none font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:border-transparent">
             {props.children}
         </select>
     </div>
@@ -53,6 +53,10 @@ const GeneratorTab: React.FC<GeneratorTabProps> = (props) => {
         generatePrompts, isLoading, generatedScenes, startProcess, feedback,
         lastCombinedVideoPath, handlePlayVideo
     } = props;
+
+    // SMART LOGIC: Check for existence of specific images
+    const hasModelImage = !!formData.fashionImages[0];   // Image 1 overrides Model Demographic
+    const hasSettingImage = !!formData.fashionImages[2]; // Image 3 overrides Setting
 
     const getImageLabel = (index: number) => {
         switch(index) {
@@ -68,7 +72,7 @@ const GeneratorTab: React.FC<GeneratorTabProps> = (props) => {
             
             <section className="flex flex-col md:flex-row gap-8 items-end justify-between border-b border-gray-200 pb-8">
                 <div className="w-full md:w-1/3">
-                    <label className="text-xs text-gray-400 uppercase tracking-widest mb-2 block">CÀI ĐẶT NHANH</label>
+                    <label className="text-xs text-gray-400 uppercase tracking-widest mb-2 block font-bold">CÀI ĐẶT NHANH</label>
                     <div className="flex gap-2">
                          <ModernSelect value={selectedPresetId} onChange={e => { setSelectedPresetId(e.target.value); handlePresetSelect(e.target.value); }}>
                             <option value="" className="bg-white text-black">CHỌN CÀI ĐẶT</option>
@@ -90,8 +94,8 @@ const GeneratorTab: React.FC<GeneratorTabProps> = (props) => {
 
             <section>
                 <div className="mb-8">
-                    <h3 className="text-3xl font-serif text-black">Nguyên Liệu</h3>
-                    <p className="text-gray-400 mt-1 font-mono text-xs uppercase">TẢI ẢNH THAM KHẢO</p>
+                    <h3 className="text-3xl font-serif text-black font-bold">Nguyên Liệu</h3>
+                    <p className="text-gray-400 mt-1 font-mono text-xs uppercase font-bold tracking-wider">TẢI ẢNH THAM KHẢO</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -100,16 +104,19 @@ const GeneratorTab: React.FC<GeneratorTabProps> = (props) => {
                         const label = getImageLabel(index);
                         return (
                             <div key={index} className="flex flex-col gap-4">
-                                <div className="flex justify-between items-end border-b border-gray-200 pb-2">
+                                <div className="flex justify-between items-end border-b-2 border-gray-100 pb-2">
                                     <h4 className="text-black font-bold text-sm tracking-widest">{label.title}</h4>
-                                    <p className="text-gray-400 text-[10px] uppercase">{label.desc}</p>
+                                    <p className="text-gray-400 text-[10px] uppercase font-bold">{label.desc}</p>
                                 </div>
-                                <div className="relative group w-full aspect-[3/4] bg-gray-50 border border-gray-200 hover:border-black transition-colors flex flex-col items-center justify-center overflow-hidden">
+                                <div className={`relative group w-full aspect-[3/4] bg-gray-50 border border-gray-200 hover:border-black transition-colors flex flex-col items-center justify-center overflow-hidden ${image ? 'border-black' : ''}`}>
                                     {image ? (
                                         <>
-                                            <img src={image.preview} alt={`Upload ${index+1}`} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" />
+                                            <img src={image.preview} alt={`Upload ${index+1}`} className="w-full h-full object-cover transition-all duration-500" />
                                             <div className="absolute inset-0 bg-white/80 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
                                                  <button onClick={() => handleRemoveFashionImage(index)} className="text-black hover:text-red-500 transition"><TrashIcon className="w-6 h-6"/></button>
+                                            </div>
+                                            <div className="absolute bottom-0 right-0 bg-black text-white text-[10px] font-bold px-2 py-1">
+                                                LOCKED
                                             </div>
                                         </>
                                     ) : (
@@ -134,8 +141,8 @@ const GeneratorTab: React.FC<GeneratorTabProps> = (props) => {
 
             <section>
                 <div className="mb-8">
-                    <h3 className="text-3xl font-serif text-black">Chỉ Đạo</h3>
-                    <p className="text-gray-400 mt-1 font-mono text-xs uppercase">THÔNG SỐ KỊCH BẢN</p>
+                    <h3 className="text-3xl font-serif text-black font-bold">Chỉ Đạo</h3>
+                    <p className="text-gray-400 mt-1 font-mono text-xs uppercase font-bold tracking-wider">THÔNG SỐ KỊCH BẢN</p>
                 </div>
 
                 <div className="grid grid-cols-1 gap-12">
@@ -145,6 +152,7 @@ const GeneratorTab: React.FC<GeneratorTabProps> = (props) => {
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+                        {/* FASHION STYLE - ALWAYS ACTIVE (Sets the vibe) */}
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Phong Cách</label>
                             <ModernSelect name="fashionStyle" value={formData.fashionStyle} onChange={handleInputChange}>
@@ -156,25 +164,70 @@ const GeneratorTab: React.FC<GeneratorTabProps> = (props) => {
                                 <option value="Avant-Garde" className="bg-white text-black">Phá cách (Avant-Garde)</option>
                             </ModernSelect>
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Nhân Vật</label>
-                            <ModernSelect name="modelDemographic" value={formData.modelDemographic} onChange={handleInputChange}>
-                                <option value="Female Model" className="bg-white text-black">Người mẫu Nữ</option>
-                                <option value="Male Model" className="bg-white text-black">Người mẫu Nam</option>
-                                <option value="Diverse Group" className="bg-white text-black">Nhóm người mẫu</option>
-                                <option value="No Model (Clothing Only)" className="bg-white text-black">Không người (Chỉ quần áo)</option>
+
+                        {/* MODEL - SMART LOCK */}
+                        <div className="relative">
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest">
+                                    Nhân Vật
+                                </label>
+                                {hasModelImage && (
+                                    <div className="flex items-center gap-1 bg-[#D4AF37] text-black px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                                        <LockIcon className="w-3 h-3" /> THEO ẢNH 01
+                                    </div>
+                                )}
+                            </div>
+                            <ModernSelect 
+                                name="modelDemographic" 
+                                value={hasModelImage ? "LOCKED" : formData.modelDemographic} 
+                                onChange={handleInputChange}
+                                disabled={hasModelImage}
+                            >
+                                {hasModelImage ? (
+                                    <option value="LOCKED">Đã khóa: Sử dụng Ảnh 01</option>
+                                ) : (
+                                    <>
+                                        <option value="Female Model" className="bg-white text-black">Người mẫu Nữ</option>
+                                        <option value="Male Model" className="bg-white text-black">Người mẫu Nam</option>
+                                        <option value="Diverse Group" className="bg-white text-black">Nhóm người mẫu</option>
+                                        <option value="No Model (Clothing Only)" className="bg-white text-black">Không người (Chỉ quần áo)</option>
+                                    </>
+                                )}
                             </ModernSelect>
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Bối Cảnh</label>
-                            <ModernSelect name="setting" value={formData.setting} onChange={handleInputChange}>
-                                <option value="Studio / Minimalist" className="bg-white text-black">Studio / Phông trơn</option>
-                                <option value="Runway / Catwalk" className="bg-white text-black">Sàn diễn (Runway)</option>
-                                <option value="Urban Street / City" className="bg-white text-black">Đường phố</option>
-                                <option value="Nature / Beach" className="bg-white text-black">Thiên nhiên / Biển</option>
-                                <option value="Neon / Cyberpunk" className="bg-white text-black">Neon / Cyberpunk</option>
+
+                        {/* SETTING - SMART LOCK */}
+                        <div className="relative">
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest">
+                                    Bối Cảnh
+                                </label>
+                                {hasSettingImage && (
+                                    <div className="flex items-center gap-1 bg-[#D4AF37] text-black px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                                        <LockIcon className="w-3 h-3" /> THEO ẢNH 03
+                                    </div>
+                                )}
+                            </div>
+                            <ModernSelect 
+                                name="setting" 
+                                value={hasSettingImage ? "LOCKED" : formData.setting} 
+                                onChange={handleInputChange}
+                                disabled={hasSettingImage}
+                            >
+                                {hasSettingImage ? (
+                                     <option value="LOCKED">Đã khóa: Sử dụng Ảnh 03</option>
+                                ) : (
+                                    <>
+                                        <option value="Studio / Minimalist" className="bg-white text-black">Studio / Phông trơn</option>
+                                        <option value="Runway / Catwalk" className="bg-white text-black">Sàn diễn (Runway)</option>
+                                        <option value="Urban Street / City" className="bg-white text-black">Đường phố</option>
+                                        <option value="Nature / Beach" className="bg-white text-black">Thiên nhiên / Biển</option>
+                                        <option value="Neon / Cyberpunk" className="bg-white text-black">Neon / Cyberpunk</option>
+                                    </>
+                                )}
                             </ModernSelect>
                         </div>
+
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Tông Màu / Cảm Xúc</label>
                             <ModernSelect name="cameraMood" value={formData.cameraMood} onChange={handleInputChange}>
@@ -220,18 +273,18 @@ const GeneratorTab: React.FC<GeneratorTabProps> = (props) => {
                  </div>
             </section>
 
-            <section className="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-200 p-6 flex justify-center gap-6 z-50">
+            <section className="fixed bottom-0 left-0 w-full bg-white/95 backdrop-blur-md border-t border-gray-200 p-6 flex justify-center gap-6 z-50 shadow-2xl">
                 <button 
                     onClick={generatePrompts} 
                     disabled={isLoading} 
-                    className="luxury-btn px-12 py-4 text-sm disabled:opacity-50"
+                    className="luxury-btn px-16 py-4 text-sm disabled:opacity-50 tracking-widest"
                 >
                     {isLoading ? <LoaderIcon /> : 'TẠO KỊCH BẢN'}
                 </button>
                 {generatedScenes.length > 0 && (
                     <button 
                         onClick={startProcess} 
-                        className="luxury-btn px-12 py-4 text-sm bg-gray-100 border-gray-300 hover:bg-black hover:text-white hover:border-black"
+                        className="luxury-btn px-12 py-4 text-sm bg-white text-black border-2 border-black hover:bg-black hover:text-white hover:border-black tracking-widest"
                     >
                         XUẤT FILE EXCEL
                     </button>

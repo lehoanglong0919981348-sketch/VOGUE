@@ -1,7 +1,7 @@
 {
-  "name": "prompt-pro-besc",
-  "version": "1.1.6",
-  "description": "An application to generate professional visual scripts for Music Videos and Live Shows by transforming ideas into detailed prompts for AI video models.",
+  "name": "v-fashion",
+  "version": "1.0.0",
+  "description": "An application to generate professional visual scripts for Fashion Videos by transforming ideas and reference images into detailed prompts for AI video models.",
   "main": "main.js",
   "homepage": "./",
   "scripts": {
@@ -11,7 +11,7 @@
     "start": "npm run build && electron .",
     "dist": "npm run build && electron-builder --publish always"
   },
-  "author": "Prompt Generator Pro",
+  "author": "V-Fashion Team",
   "license": "UNLICENSED",
   "dependencies": {
     "@google/genai": "^1.28.0",
@@ -33,35 +33,9 @@
     "vite": "^5.0.12"
   },
   "build": {
-    "appId": "com.promptgenerator.pro",
-    "productName": "Prompt Pro BESC",
+    "appId": "com.vfashion.app",
+    "productName": "V-Fashion",
     "publish": [
       {
         "provider": "github",
         "owner": "lehoanglong0919981348-sketch",
-        "repo": "Kich_Ban_Privite"
-      }
-    ],
-    "files": [
-      "dist/**/*",
-      "main.js"
-    ],
-    "extraResources": [
-      {
-        "from": "resources/ffmpeg",
-        "to": "ffmpeg"
-      }
-    ],
-    "directories": {
-      "output": "release"
-    },
-    "win": {
-      "target": "nsis",
-      "icon": "assets/icon.ico"
-    },
-    "mac": {
-      "target": "dmg",
-      "icon": "assets/icon.icns"
-    }
-  }
-}

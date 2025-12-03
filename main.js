@@ -367,23 +367,11 @@ app.whenReady().then(() => {
       label: 'Help',
       submenu: [
         {
-          label: 'Hướng dẫn sử dụng',
-          click: () => {
-            const guideWindow = new BrowserWindow({ width: 900, height: 700, title: 'Hướng dẫn sử dụng - Prompt Pro BESC', icon: path.join(__dirname, 'assets/icon.png') });
-            const guideUrl = app.isPackaged
-                ? path.join(__dirname, 'dist', 'guide.html')
-                : path.join(__dirname, 'guide.html');
-            guideWindow.loadFile(guideUrl);
-            guideWindow.setMenu(null);
-          }
-        },
-        { type: 'separator' },
-        {
           label: 'About',
           click: () => {
             const focusedWindow = BrowserWindow.getFocusedWindow();
             if (focusedWindow) {
-              dialog.showMessageBox(focusedWindow, { type: 'info', title: 'About Prompt Pro BESC', message: `Prompt Pro BESC v${app.getVersion()}`, detail: 'An application to generate professional visual scripts for Music Videos and Live Shows.\n\nCreated by Cường-VFATS.' });
+              dialog.showMessageBox(focusedWindow, { type: 'info', title: 'About V-Fashion', message: `V-Fashion v${app.getVersion()}`, detail: 'An application to generate professional visual scripts for Fashion Videos and Live Shows.\n\nCreated by Cường-VFATS.' });
             }
           }
         }

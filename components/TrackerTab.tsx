@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { JobStatus, TrackedFile, VideoJob } from '../types';
 import { RetryIcon, ExternalLinkIcon, FolderIcon, TrashIcon, VideoIcon, LoaderIcon, CopyIcon, CogIcon } from './Icons';
@@ -45,8 +44,8 @@ const getStatusBadge = (status: JobStatus) => {
 };
 
 const StatCard: React.FC<{ label: string; value: string | number }> = ({ label, value }) => (
-    <div className="flex flex-col border-l border-gray-300 pl-4 pr-8">
-        <span className="text-2xl font-serif text-black">{value}</span>
+    <div className="flex flex-col border-l-2 border-gray-100 pl-6 pr-8">
+        <span className="text-3xl font-serif text-black font-bold">{value}</span>
         <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">{label}</span>
     </div>
 );
@@ -63,10 +62,10 @@ const TrackerTab: React.FC<TrackerTabProps> = (props) => {
     const renderResultCell = (job: VideoJob, fileIndex: number) => {
         if(job.status === 'Completed' && job.videoPath) {
              return (
-                <div className="relative group w-48 h-28 bg-gray-100 overflow-hidden cursor-pointer border border-gray-200 hover:border-black transition-colors" onClick={() => handlePlayVideo(job.videoPath!)}>
+                <div className="relative group w-48 h-28 bg-gray-100 overflow-hidden cursor-pointer border border-gray-200 hover:border-black transition-all shadow-sm hover:shadow-md" onClick={() => handlePlayVideo(job.videoPath!)}>
                     <video 
                         src={`file://${job.videoPath}`}
-                        className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity grayscale group-hover:grayscale-0 duration-500"
+                        className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity duration-500"
                         muted
                         preload="metadata"
                         onMouseEnter={(e) => (e.target as HTMLVideoElement).play().catch(() => {})}
@@ -96,8 +95,9 @@ const TrackerTab: React.FC<TrackerTabProps> = (props) => {
             
             {trackedFiles.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center bg-gray-50">
-                    <h3 className="text-4xl font-serif text-gray-300">CHƯA CÓ DỰ ÁN</h3>
-                    <button onClick={handleOpenNewFile} className="mt-8 luxury-btn px-8 py-3 text-xs bg-white">
+                    <h3 className="text-5xl font-serif text-gray-300 font-bold tracking-tight">V-FASHION</h3>
+                    <p className="text-gray-400 mt-4 text-sm font-medium uppercase tracking-widest">Không có dự án nào đang mở</p>
+                    <button onClick={handleOpenNewFile} className="mt-8 luxury-btn px-10 py-4 text-xs bg-white">
                         MỞ FILE DỰ ÁN
                     </button>
                 </div>
@@ -105,9 +105,9 @@ const TrackerTab: React.FC<TrackerTabProps> = (props) => {
                 <div className="flex-1 flex overflow-hidden">
                     
                     {/* LEFT SIDEBAR */}
-                    <aside className="w-64 flex-none flex flex-col border-r border-gray-200 bg-gray-50">
-                        <div className="p-6 border-b border-gray-200">
-                            <button onClick={handleOpenNewFile} className="w-full py-3 border border-gray-300 hover:border-black text-gray-500 hover:text-black text-xs font-bold uppercase tracking-widest transition bg-white">
+                    <aside className="w-64 flex-none flex flex-col border-r border-gray-200 bg-gray-50/50">
+                        <div className="p-6 border-b border-gray-200 bg-white">
+                            <button onClick={handleOpenNewFile} className="w-full py-3 border-2 border-gray-200 hover:border-black text-gray-500 hover:text-black text-xs font-bold uppercase tracking-widest transition bg-transparent hover:bg-white">
                                 + Dự Án Mới
                             </button>
                         </div>
@@ -122,7 +122,7 @@ const TrackerTab: React.FC<TrackerTabProps> = (props) => {
                                     <div key={`${file.path}-${index}`} 
                                         onClick={() => setActiveTrackerFileIndex(index)}
                                         className={`group relative p-6 cursor-pointer transition-all border-b border-gray-200 ${
-                                            active ? 'bg-white' : 'hover:bg-gray-100'
+                                            active ? 'bg-white border-l-4 border-l-black' : 'hover:bg-gray-100 border-l-4 border-l-transparent'
                                         }`} 
                                     >
                                         <div className="flex justify-between items-start mb-2">
@@ -131,11 +131,11 @@ const TrackerTab: React.FC<TrackerTabProps> = (props) => {
                                             </span>
                                             {active && <button onClick={(e) => { e.stopPropagation(); handleCloseTrackerTab(index); }} className="text-gray-400 hover:text-red-500">×</button>}
                                         </div>
-                                        <div className="w-full bg-gray-200 h-px mb-2">
-                                            <div className={`h-full transition-all duration-500 ${progress === 100 ? 'bg-black' : 'bg-gray-400'}`} style={{ width: `${progress}%` }}></div>
+                                        <div className="w-full bg-gray-200 h-1 mb-2 rounded-full overflow-hidden">
+                                            <div className={`h-full transition-all duration-500 ${progress === 100 ? 'bg-black' : 'bg-[#D4AF37]'}`} style={{ width: `${progress}%` }}></div>
                                         </div>
                                         <div className="text-[10px] text-gray-400 font-mono">
-                                            {completedCount.toString().padStart(2, '0')} / {totalCount.toString().padStart(2, '0')}
+                                            {completedCount.toString().padStart(2, '0')} / {totalCount.toString().padStart(2, '0')} SCENES
                                         </div>
                                     </div>
                                 )
@@ -147,7 +147,7 @@ const TrackerTab: React.FC<TrackerTabProps> = (props) => {
                     <section className="flex-1 flex flex-col min-w-0 bg-white">
                         {currentFile && stats && (
                             <>
-                            <div className="flex-none p-8 border-b border-gray-200">
+                            <div className="flex-none p-8 border-b border-gray-200 bg-white shadow-sm z-10">
                                 <div className="flex items-center justify-between mb-8">
                                     <div className="flex">
                                         <StatCard label="HOÀN THÀNH" value={`${stats.completed}/${stats.total}`} />
@@ -157,14 +157,14 @@ const TrackerTab: React.FC<TrackerTabProps> = (props) => {
                                     </div>
                                     
                                     <div className="flex gap-4">
-                                        <button onClick={handleCombineAllFiles} disabled={isCombiningAll || !ffmpegFound} className="luxury-btn px-6 py-2 text-xs disabled:opacity-30 border-gray-300">XUẤT TẤT CẢ</button>
-                                        <button onClick={() => handleExecuteCombine('normal')} disabled={isCombiningVideo || !ffmpegFound} className="luxury-btn px-6 py-2 text-xs bg-black text-white border-black disabled:opacity-30 hover:bg-gray-800">GHÉP VIDEO</button>
+                                        <button onClick={handleCombineAllFiles} disabled={isCombiningAll || !ffmpegFound} className="luxury-btn px-6 py-3 text-xs bg-white text-black border-2 border-black disabled:opacity-30 hover:bg-black hover:text-white">XUẤT TẤT CẢ</button>
+                                        <button onClick={() => handleExecuteCombine('normal')} disabled={isCombiningVideo || !ffmpegFound} className="luxury-btn px-6 py-3 text-xs bg-black text-white border-2 border-black disabled:opacity-30 hover:bg-[#D4AF37] hover:border-[#D4AF37]">GHÉP VIDEO</button>
                                     </div>
                                 </div>
 
                                 <div className="flex flex-wrap items-center gap-6">
-                                    <button onClick={handleReloadVideos} className="text-gray-400 hover:text-black text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition">
-                                        <RetryIcon className="w-4 h-4"/> LÀM MỚI
+                                    <button onClick={handleReloadVideos} className="text-gray-400 hover:text-black text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition group">
+                                        <RetryIcon className="w-4 h-4 group-hover:rotate-180 transition-transform"/> LÀM MỚI
                                     </button>
                                     <button onClick={handleRetryStuckJobs} className="text-gray-400 hover:text-black text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition">
                                         SỬA LỖI KẸT
@@ -184,36 +184,36 @@ const TrackerTab: React.FC<TrackerTabProps> = (props) => {
                                 </div>
                             </div>
                             
-                            <div className="flex-1 overflow-hidden relative">
+                            <div className="flex-1 overflow-hidden relative bg-gray-50/30">
                                 <div className="absolute inset-0 overflow-y-auto custom-scrollbar">
                                     <table className="w-full text-black">
-                                        <thead className="bg-gray-5 text-gray-500 uppercase text-[10px] font-bold tracking-widest sticky top-0 z-10 border-b border-gray-200">
+                                        <thead className="bg-white text-gray-500 uppercase text-[10px] font-bold tracking-widest sticky top-0 z-10 border-b border-gray-200 shadow-sm">
                                             <tr>
-                                                <th className="px-8 py-4 text-left font-normal w-24">ID</th>
-                                                <th className="px-8 py-4 text-left font-normal w-32">TRẠNG THÁI</th>
-                                                <th className="px-8 py-4 text-left font-normal">TÊN VIDEO</th>
-                                                <th className="px-8 py-4 text-center font-normal w-64">XEM TRƯỚC</th>
-                                                <th className="px-8 py-4 text-right font-normal w-40">THAO TÁC</th>
+                                                <th className="px-8 py-5 text-left font-bold w-24 bg-gray-50">ID</th>
+                                                <th className="px-8 py-5 text-left font-bold w-32 bg-gray-50">TRẠNG THÁI</th>
+                                                <th className="px-8 py-5 text-left font-bold bg-gray-50">TÊN VIDEO</th>
+                                                <th className="px-8 py-5 text-center font-bold w-64 bg-gray-50">XEM TRƯỚC</th>
+                                                <th className="px-8 py-5 text-right font-bold w-40 bg-gray-50">THAO TÁC</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
                                             {currentFile.jobs.map(job => (
-                                                <tr key={job.id} className="hover:bg-gray-50 transition-colors group">
-                                                    <td className="px-8 py-6 font-mono text-xs text-gray-500">{job.id}</td>
+                                                <tr key={job.id} className="hover:bg-white transition-colors group">
+                                                    <td className="px-8 py-6 font-mono text-xs text-gray-500 font-medium">{job.id}</td>
                                                     <td className="px-8 py-6 font-mono text-xs font-bold uppercase tracking-wide">
                                                         <span className={getStatusBadge(job.status)}>{job.status === 'Pending' ? 'Đang chờ' : job.status === 'Processing' ? 'Đang xử lý' : job.status === 'Generating' ? 'Đang tạo' : job.status === 'Completed' ? 'Hoàn thành' : 'Lỗi'}</span>
                                                     </td>
-                                                    <td className="px-8 py-6 font-mono text-xs text-gray-700">{job.videoName}</td>
+                                                    <td className="px-8 py-6 font-mono text-xs text-gray-700 font-medium">{job.videoName}</td>
                                                     <td className="px-8 py-6 flex justify-center">{renderResultCell(job, activeTrackerFileIndex)}</td>
                                                     <td className="px-8 py-6 text-right">
                                                         <div className="flex items-center justify-end gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
                                                             {job.videoPath && (
                                                                 <>
-                                                                    <button onClick={() => handleShowInFolder(job.videoPath)} className="text-gray-400 hover:text-black transition" title="Mở thư mục"><FolderIcon className="w-4 h-4"/></button>
-                                                                    <button onClick={() => handleDeleteVideo(job.id, job.videoPath)} className="text-gray-400 hover:text-red-500 transition" title="Xóa"><TrashIcon className="w-4 h-4"/></button>
+                                                                    <button onClick={() => handleShowInFolder(job.videoPath)} className="text-gray-400 hover:text-black transition transform hover:scale-110" title="Mở thư mục"><FolderIcon className="w-4 h-4"/></button>
+                                                                    <button onClick={() => handleDeleteVideo(job.id, job.videoPath)} className="text-gray-400 hover:text-red-500 transition transform hover:scale-110" title="Xóa"><TrashIcon className="w-4 h-4"/></button>
                                                                 </>
                                                             )}
-                                                            <button onClick={() => handleRetryJob(job.id)} className="text-gray-400 hover:text-black transition" title="Reset"><RetryIcon className="w-4 h-4"/></button>
+                                                            <button onClick={() => handleRetryJob(job.id)} className="text-gray-400 hover:text-black transition transform hover:scale-110" title="Reset"><RetryIcon className="w-4 h-4"/></button>
                                                         </div>
                                                     </td>
                                                 </tr>

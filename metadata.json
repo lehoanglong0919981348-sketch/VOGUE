@@ -1,5 +1,5 @@
 {
-  "name": "Thời Trang",
-  "description": "An application to generate professional visual scripts for Music Videos and Live Shows by transforming ideas into detailed prompts for AI video models.",
+  "name": "V-Fashion",
+  "description": "An application to generate professional visual scripts for Fashion Videos by transforming ideas and reference images into detailed prompts for AI video models.",
   "requestFramePermissions": []
 }

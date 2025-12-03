@@ -1,15 +1,14 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Prompt Pro BESC</title>
+    <title>V-Fashion</title>
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#ffffff">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <style>
         :root {
             /* Light Mode Palette */
@@ -46,10 +45,11 @@
         
         .luxury-input {
             background: transparent;
-            border-bottom: 1px solid var(--luxury-border);
+            border-bottom: 2px solid var(--luxury-border);
             border-radius: 0;
             color: var(--luxury-white);
             transition: all 0.3s ease;
+            font-weight: 500;
         }
         .luxury-input:focus {
             border-color: var(--luxury-white);
@@ -57,20 +57,40 @@
             outline: none;
         }
         
+        /* Prominent Button Style */
         .luxury-btn {
-            background: var(--luxury-white);
-            color: var(--luxury-black);
-            border: 1px solid var(--luxury-white);
+            background: #000000;
+            color: #ffffff;
+            border: 2px solid #000000;
             border-radius: 0;
             text-transform: uppercase;
             letter-spacing: 1px;
-            font-weight: 600;
-            transition: all 0.3s ease;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
         }
+        
         .luxury-btn:hover {
-            background: transparent;
-            color: var(--luxury-white);
-            border-color: var(--luxury-white);
+            background: var(--luxury-gold);
+            border-color: var(--luxury-gold);
+            color: #ffffff;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -10px rgba(212, 175, 55, 0.5);
+        }
+
+        .luxury-btn:active {
+            transform: translateY(0);
+        }
+
+        .luxury-btn:disabled {
+            background: #e5e7eb;
+            border-color: #e5e7eb;
+            color: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
 
         .luxury-card {
@@ -82,7 +102,7 @@
 
         /* Update select arrow to be black for light mode */
         select {
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23000000' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23000000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
             background-repeat: no-repeat;
             background-position: right 0.5rem center;
             background-size: 1em;
