@@ -33,8 +33,7 @@ const App: React.FC = () => {
     idea: '',
     projectName: '',
     model: 'gemini-2.5-flash',
-    songMinutes: '0',
-    songSeconds: '15', // Default short fashion clip
+    sceneCount: 5, // Default number of prompts
     fashionStyle: 'High Fashion / Editorial',
     modelDemographic: 'Female Model',
     setting: 'Studio / Minimalist',
@@ -331,24 +330,11 @@ const App: React.FC = () => {
         setFormData((prev) => ({ ...prev, [name]: checked }));
       } else if (name === 'temperature') {
         setFormData((prev) => ({ ...prev, [name]: parseFloat(value) }));
-      } else if (name === 'songMinutes') {
-         if (value === '') { setFormData(prev => ({ ...prev, songMinutes: '' })); return; }
-        let val = parseInt(value);
-        if (isNaN(val)) val = 0;
-        if (val < 0) val = 0;
-        if (val > 30) val = 30;
-        setFormData(prev => {
-            const newSeconds = (val === 30) ? '0' : prev.songSeconds;
-            return { ...prev, songMinutes: val.toString(), songSeconds: newSeconds };
-        });
-      } else if (name === 'songSeconds') {
+      } else if (name === 'sceneCount') {
          let val = parseInt(value);
-         if (isNaN(val) || val < 0) val = 0;
-         setFormData(prev => {
-             if (parseInt(prev.songMinutes) >= 30) { return { ...prev, songSeconds: '0' }; }
-             if (val > 59) val = 59;
-             return { ...prev, songSeconds: val.toString() };
-         });
+         if (isNaN(val) || val < 1) val = 1;
+         if (val > 50) val = 50; // Max reasonable limit
+         setFormData(prev => ({ ...prev, sceneCount: val }));
       } else { setFormData((prev) => ({ ...prev, [name]: value })); }
     },[],
   );
@@ -387,28 +373,31 @@ const App: React.FC = () => {
     if (!activeApiKey) { setFeedback({ type: 'error', message: 'Yêu cầu API Key.' }); setIsManagingKeys(true); return; }
     setIsLoading(true); setFeedback(null); setGeneratedScenes([]);
 
-    // Validation
-    const totalSeconds = (parseInt(formData.songMinutes) || 0) * 60 + (parseInt(formData.songSeconds) || 0);
-    if (totalSeconds <= 0) { setFeedback({ type: 'error', message: 'Thời lượng không hợp lệ.' }); setIsLoading(false); return; }
-    
-    // Scene Calculation (Fashion videos are faster paced usually)
-    let sceneCount = Math.max(3, Math.round(totalSeconds / 6)); 
+    // Conflict Resolution Logic
+    // If Image 1 (Model) exists, ignore the Model Dropdown text
+    const hasModelImage = !!formData.fashionImages[0];
+    const modelDescription = hasModelImage ? "USE UPLOADED IMAGE 1 AS MODEL REFERENCE" : formData.modelDemographic;
+
+    // If Image 3 (Setting) exists, ignore the Setting Dropdown text
+    const hasSettingImage = !!formData.fashionImages[2];
+    const settingDescription = hasSettingImage ? "USE UPLOADED IMAGE 3 AS SETTING REFERENCE" : formData.setting;
 
     let userPrompt = `Create a Fashion Video Script (Ingredients Mode).`;
     userPrompt += `\n**Creative Idea / Theme:** "${formData.idea.trim() || 'Showcase the collection'}"`;
     userPrompt += `\n**Specs:**`;
     userPrompt += `\n- Fashion Style: ${formData.fashionStyle}`;
-    userPrompt += `\n- Model Type: ${formData.modelDemographic}`;
-    userPrompt += `\n- Setting/Environment: ${formData.setting}`;
+    userPrompt += `\n- Model Type: ${modelDescription}`;
+    userPrompt += `\n- Setting/Environment: ${settingDescription}`;
     userPrompt += `\n- Camera Mood: ${formData.cameraMood}`;
-    userPrompt += `\n- Total Scenes: ${sceneCount}`;
-    userPrompt += `\n- Images Provided: ${formData.fashionImages.length}`;
+    userPrompt += `\n- Total Scenes: ${formData.sceneCount}`;
+    userPrompt += `\n- Images Provided: ${formData.fashionImages.filter(i => i).length}`;
     
     formData.fashionImages.forEach((_img, idx) => {
+        if (!_img) return;
         let role = "Reference";
-        if (idx === 0) role = "MODEL (Img 1)";
-        if (idx === 1) role = "OUTFIT (Img 2)";
-        if (idx === 2) role = "SETTING (Img 3)";
+        if (idx === 0) role = "MODEL (Img 1) - STRICT REFERENCE";
+        if (idx === 1) role = "OUTFIT (Img 2) - STRICT REFERENCE";
+        if (idx === 2) role = "SETTING (Img 3) - STRICT REFERENCE";
         userPrompt += `\n- Image Slot ${idx+1}: ${role}`;
     });
 
@@ -416,7 +405,9 @@ const App: React.FC = () => {
     
     // Attach Images for Analysis
     formData.fashionImages.forEach(img => {
-        parts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } });
+        if (img) {
+             parts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } });
+        }
     });
 
     try {
@@ -476,6 +467,11 @@ const App: React.FC = () => {
       const img2 = formData.fashionImages[1] ? (formData.fashionImages[1].file as any).path : '';
       const img3 = formData.fashionImages[2] ? (formData.fashionImages[2].file as any).path : '';
 
+      // Determine TYPE_VIDEO based on image uploads
+      // If ANY image slot has a file, we treat it as I2V logic
+      const hasImages = !!img1 || !!img2 || !!img3;
+      const typeVideoValue = hasImages ? 'I2V' : '';
+
       const dataForTracker: VideoJob[] = generatedScenes.map((p, index) => ({
           id: `Job_${index + 1}`,
           prompt: p.prompt_text,
@@ -484,7 +480,7 @@ const App: React.FC = () => {
           imagePath3: img3,
           status: 'Pending',
           videoName: `${safeProjectName}_${index + 1}`,
-          typeVideo: '',
+          typeVideo: typeVideoValue,
       }));
 
       const dataForExcel = dataForTracker.map(job => ({ ...job, status: '' }));
@@ -505,8 +501,8 @@ const App: React.FC = () => {
         else if (result.error && result.error !== 'Save dialog canceled') throw new Error(`${result.error}`);
       } else { XLSX.writeFile(workbook, fullFileName); setFeedback({ type: 'success', message: 'Đang tải file Excel.' }); }
 
-      const totalSeconds = (parseInt(formData.songMinutes) || 0) * 60 + (parseInt(formData.songSeconds) || 0);
-      const newTrackedFile: TrackedFile = { name: fullFileName, jobs: dataForTracker, path: filePath, targetDurationSeconds: totalSeconds };
+      // Note: We no longer track duration in seconds, defaulting to 0 as it's not critical for generation
+      const newTrackedFile: TrackedFile = { name: fullFileName, jobs: dataForTracker, path: filePath, targetDurationSeconds: 0 };
       setTrackedFiles(prevFiles => [...prevFiles, newTrackedFile]);
       setActiveTrackerFileIndex(trackedFiles.length);
       setActiveTab('tracker');
@@ -658,8 +654,8 @@ const App: React.FC = () => {
   };
   const handleSavePreset = () => {
       if (!newPresetName.trim()) { setFeedback({ type: 'error', message: 'Nhập tên cài đặt.' }); return; }
-      const { model, fashionStyle, modelDemographic, setting, cameraMood, temperature } = formData;
-      const settingsToSave: Partial<FormData> = { model, fashionStyle, modelDemographic, setting, cameraMood, temperature };
+      const { model, fashionStyle, modelDemographic, setting, cameraMood, temperature, sceneCount } = formData;
+      const settingsToSave: Partial<FormData> = { model, fashionStyle, modelDemographic, setting, cameraMood, temperature, sceneCount };
       const newPreset: Preset = { id: crypto.randomUUID(), name: newPresetName.trim(), settings: settingsToSave };
       const updatedPresets = [...presets, newPreset];
       setPresets(updatedPresets); setNewPresetName('');
@@ -674,112 +670,164 @@ const App: React.FC = () => {
   const handleDeletePreset = () => {
       if (!selectedPresetId) return;
       const updatedPresets = presets.filter(p => p.id !== selectedPresetId);
-      setPresets(updatedPresets); setSelectedPresetId('');
+      setPresets(updatedPresets);
+      setSelectedPresetId('');
       if (isElectron && ipcRenderer) ipcRenderer.invoke('save-app-config', { presets: updatedPresets });
-      setFeedback({ type: 'info', message: `Đã xóa cài đặt.` });
-  };
-  const handleDeleteStatHistory = async (date: string) => { if(ipcRenderer) await ipcRenderer.invoke('delete-stat-date', date); };
-  const handleDeleteAllStats = async () => { if(ipcRenderer) await ipcRenderer.invoke('delete-all-stats'); };
-
-  const TabButton: React.FC<{ tabName: ActiveTab; children: React.ReactNode; }> = ({ tabName, children }) => {
-    const isActive = activeTab === tabName;
-    return (
-      <button
-          onClick={() => setActiveTab(tabName)}
-          className={`luxury-btn px-6 py-3 font-serif flex items-center gap-2 text-sm ${
-              isActive 
-              ? 'bg-black text-white border-black' 
-              : 'bg-transparent text-gray-500 border-transparent hover:text-black hover:border-black'
-          }`}
-      >
-          {children}
-      </button>
-    );
+      setFeedback({ type: 'info', message: 'Đã xóa cài đặt.' });
   };
 
-  if (!configLoaded) return <div className="h-screen w-full flex items-center justify-center bg-white text-black"><LoaderIcon /></div>;
-  if (!isActivated && machineId) return <Activation machineId={machineId} onActivate={handleActivate} />;
-  if (isActivated && (!activeApiKey || isManagingKeys)) return <ApiKeyManager apiKeys={apiKeys} onKeyAdd={handleKeyAdd} onKeyDelete={handleKeyDelete} onKeySelect={handleKeySelect} />;
-  
-  const currentFile = trackedFiles.length > 0 ? trackedFiles[activeTrackerFileIndex] : null;
-  const stats = currentFile ? {
-    completed: currentFile.jobs.filter(j => j.status === 'Completed').length,
-    inProgress: currentFile.jobs.filter(j => j.status === 'Processing' || j.status === 'Generating').length,
-    failed: currentFile.jobs.filter(j => j.status === 'Failed').length,
-    total: currentFile.jobs.length,
+  const currentFile = trackedFiles[activeTrackerFileIndex];
+  const trackerStats = currentFile ? {
+      completed: currentFile.jobs.filter(j => j.status === 'Completed').length,
+      inProgress: currentFile.jobs.filter(j => j.status === 'Processing' || j.status === 'Generating').length,
+      failed: currentFile.jobs.filter(j => j.status === 'Failed').length,
+      total: currentFile.jobs.length
   } : null;
 
-  const formatDuration = (totalSeconds?: number) => {
-    if (totalSeconds === undefined || totalSeconds === null) return '--:--';
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  };
-  
+  if (!configLoaded) return <div className="h-screen flex items-center justify-center bg-white text-black"><LoaderIcon /></div>;
+
+  if (!isActivated) {
+    return <Activation machineId={machineId} onActivate={handleActivate} />;
+  }
+
+  if (activeApiKey === null || isManagingKeys) {
+    return (
+        <ApiKeyManager 
+            apiKeys={apiKeys}
+            onKeySelect={handleKeySelect}
+            onKeyAdd={handleKeyAdd}
+            onKeyDelete={handleKeyDelete}
+        />
+    );
+  }
+
   return (
-    <div className="dashboard-container text-black animate-fade-in font-sans">
-        
-        <header className="flex-none px-8 py-6 flex flex-col md:flex-row justify-between items-center border-b border-gray-200 bg-white z-50">
-            <div>
-                <h1 className="text-4xl font-serif tracking-tighter text-black">
-                    VOGUE<span className="text-[#D4AF37] italic">AI</span>
-                </h1>
-                <p className="text-xs text-gray-500 uppercase tracking-[0.2em] mt-1">Fashion Script Generator</p>
+    <div className="dashboard-container font-sans text-black">
+        {/* Header */}
+        <header className="flex-none h-20 border-b border-gray-200 bg-white flex items-center justify-between px-8 z-50">
+            <div className="flex items-center gap-4">
+                <h1 className="text-2xl font-serif font-bold tracking-tighter">PROMPT PRO <span className="text-gray-400 font-sans text-xs tracking-widest ml-2">BESC EDITION</span></h1>
             </div>
 
-            <div className="flex items-center gap-8 mt-4 md:mt-0">
-                <div className="flex gap-4">
-                    <TabButton tabName="generator">TẠO</TabButton>
-                    <TabButton tabName="tracker">THEO DÕI</TabButton>
-                </div>
+            <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-none">
+                <button 
+                    onClick={() => setActiveTab('generator')}
+                    className={`px-6 py-2 text-xs font-bold uppercase tracking-widest transition-colors ${activeTab === 'generator' ? 'bg-white shadow-sm text-black' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                    Tạo Kịch Bản
+                </button>
+                <button 
+                    onClick={() => setActiveTab('tracker')}
+                    className={`px-6 py-2 text-xs font-bold uppercase tracking-widest transition-colors ${activeTab === 'tracker' ? 'bg-white shadow-sm text-black' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                    Theo Dõi
+                </button>
+            </div>
 
-                <div className="h-6 w-px bg-gray-200"></div>
-
-                {activeApiKey && (
-                    <div className="flex items-center gap-2 cursor-pointer group" onClick={() => setIsManagingKeys(true)}>
-                        <KeyIcon className="w-4 h-4 text-gray-400 group-hover:text-black transition" />
-                        <span className="text-gray-500 text-xs font-mono group-hover:text-black transition">{activeApiKey.name}</span>
-                    </div>
-                )}
-                
-                <div className="flex gap-4">
-                    <button onClick={() => setShowStats(true)} className="text-gray-400 hover:text-black transition"><ChartIcon className="w-5 h-5" /></button>
-                    <button onClick={() => setShowAdminLogin(true)} className="text-gray-400 hover:text-black transition"><ShieldIcon className="w-5 h-5" /></button>
-                </div>
+            <div className="flex items-center gap-6">
+                 {/* Stats Button */}
+                 <button onClick={() => setShowStats(true)} className="text-gray-400 hover:text-black transition">
+                    <ChartIcon className="w-5 h-5" />
+                 </button>
+                 {/* Key Manager Button */}
+                 <button onClick={() => setIsManagingKeys(true)} className="text-gray-400 hover:text-black transition">
+                    <KeyIcon className="w-5 h-5" />
+                 </button>
+                 {/* Admin Button */}
+                 <button onClick={() => setShowAdminLogin(true)} className="text-gray-400 hover:text-black transition">
+                    <ShieldIcon className="w-5 h-5" />
+                 </button>
             </div>
         </header>
 
-        <div className="content-area relative">
-            <div className={`absolute inset-0 h-full w-full overflow-y-auto p-8 pb-32 ${activeTab === 'generator' ? 'block z-20' : 'hidden z-0'}`}>
-                <div className="max-w-7xl mx-auto">
-                <GeneratorTab
-                    formData={formData} setFormData={setFormData}
-                    handleInputChange={handleInputChange} 
+        {/* Content */}
+        <div className="content-area bg-white relative">
+             <div className={`absolute inset-0 overflow-y-auto custom-scrollbar p-8 md:p-12 transition-opacity duration-300 ${activeTab === 'generator' ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
+                <GeneratorTab 
+                    formData={formData}
+                    setFormData={setFormData}
+                    handleInputChange={handleInputChange}
                     handleFashionImagesUpload={handleFashionImagesUpload}
                     handleRemoveFashionImage={handleRemoveFashionImage}
-                    presets={presets} handlePresetSelect={handlePresetSelect} handleDeletePreset={handleDeletePreset} handleSavePreset={handleSavePreset}
-                    newPresetName={newPresetName} setNewPresetName={setNewPresetName} selectedPresetId={selectedPresetId} setSelectedPresetId={setSelectedPresetId}
-                    generatePrompts={generatePrompts} isLoading={isLoading} generatedScenes={generatedScenes} startProcess={startProcess}
-                    feedback={feedback} lastCombinedVideoPath={lastCombinedVideoPath} handlePlayVideo={handlePlayVideo}
-                />
-                </div>
-            </div>
+                    
+                    presets={presets}
+                    handlePresetSelect={handlePresetSelect}
+                    handleDeletePreset={handleDeletePreset}
+                    handleSavePreset={handleSavePreset}
+                    newPresetName={newPresetName}
+                    setNewPresetName={setNewPresetName}
+                    selectedPresetId={selectedPresetId}
+                    setSelectedPresetId={setSelectedPresetId}
 
-            <div className={`absolute inset-0 h-full w-full p-8 pb-24 ${activeTab === 'tracker' ? 'block z-20' : 'hidden z-0'}`}>
-                <TrackerTab
-                    feedback={feedback} lastCombinedVideoPath={lastCombinedVideoPath} handlePlayVideo={handlePlayVideo} trackedFiles={trackedFiles}
-                    handleOpenNewFile={handleOpenNewFile} activeTrackerFileIndex={activeTrackerFileIndex} setActiveTrackerFileIndex={setActiveTrackerFileIndex} handleCloseTrackerTab={handleCloseTrackerTab}
-                    stats={stats} currentFile={currentFile} formatDuration={formatDuration} handleReloadVideos={handleReloadVideos} handleRetryStuckJobs={handleRetryStuckJobs}
-                    handleOpenToolFlows={handleOpenToolFlows} handleSetToolFlowsPath={handleSetToolFlowsPath} handleOpenFolder={handleOpenFolder} handleCopyPath={handleCopyPath} getFolderPath={getFolderPath}
-                    ffmpegFound={ffmpegFound} handleCombineAllFiles={handleCombineAllFiles} isCombiningAll={isCombiningAll} isCombiningVideo={isCombiningVideo} handleExecuteCombine={handleExecuteCombine}
-                    handleLinkVideo={handleLinkVideo} handleShowInFolder={handleShowInFolder} handleDeleteVideo={handleDeleteVideo} handleRetryJob={handleRetryJob}
+                    generatePrompts={generatePrompts}
+                    isLoading={isLoading}
+                    generatedScenes={generatedScenes}
+                    startProcess={startProcess}
+                    feedback={feedback}
+                    lastCombinedVideoPath={lastCombinedVideoPath}
+                    handlePlayVideo={handlePlayVideo}
                 />
-            </div>
+             </div>
+             
+             <div className={`absolute inset-0 transition-opacity duration-300 ${activeTab === 'tracker' ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
+                <TrackerTab 
+                    feedback={feedback}
+                    lastCombinedVideoPath={lastCombinedVideoPath}
+                    handlePlayVideo={handlePlayVideo}
+                    trackedFiles={trackedFiles}
+                    handleOpenNewFile={handleOpenNewFile}
+                    activeTrackerFileIndex={activeTrackerFileIndex}
+                    setActiveTrackerFileIndex={setActiveTrackerFileIndex}
+                    handleCloseTrackerTab={handleCloseTrackerTab}
+                    stats={trackerStats}
+                    currentFile={trackedFiles[activeTrackerFileIndex] || null}
+                    formatDuration={(s) => s ? `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}` : '0:00'}
+                    handleReloadVideos={handleReloadVideos}
+                    handleRetryStuckJobs={handleRetryStuckJobs}
+                    handleOpenToolFlows={handleOpenToolFlows}
+                    handleSetToolFlowsPath={handleSetToolFlowsPath}
+                    handleOpenFolder={handleOpenFolder}
+                    handleCopyPath={handleCopyPath}
+                    getFolderPath={getFolderPath}
+                    ffmpegFound={ffmpegFound}
+                    handleCombineAllFiles={handleCombineAllFiles}
+                    isCombiningAll={isCombiningAll}
+                    isCombiningVideo={isCombiningVideo}
+                    handleExecuteCombine={handleExecuteCombine}
+                    handleLinkVideo={handleLinkVideo}
+                    handleShowInFolder={handleShowInFolder}
+                    handleDeleteVideo={handleDeleteVideo}
+                    handleRetryJob={handleRetryJob}
+                />
+             </div>
         </div>
 
-      {showStats && <StatsModal onClose={() => { setShowStats(false); setIsAdminLoggedIn(false); }} isAdmin={isAdminLoggedIn} onDeleteAll={handleDeleteAllStats} onDeleteHistory={handleDeleteStatHistory} />}
-      {showAdminLogin && <AdminLoginModal onClose={() => setShowAdminLogin(false)} onLoginSuccess={() => { setShowAdminLogin(false); setIsAdminLoggedIn(true); setShowStats(true); }} />}
-      {alertModal && <AlertModal title={alertModal.title} message={alertModal.message} type={alertModal.type} onClose={() => setAlertModal(null)} onConfirm={alertModal.onConfirm} />}
+        {/* Modals */}
+        {showStats && (
+            <StatsModal 
+                onClose={() => setShowStats(false)} 
+                isAdmin={isAdminLoggedIn} 
+                onDeleteHistory={async (date) => { if (isElectron && ipcRenderer) await ipcRenderer.invoke('delete-stat-date', date); }}
+                onDeleteAll={async () => { if (isElectron && ipcRenderer) await ipcRenderer.invoke('delete-all-stats'); }}
+            />
+        )}
+
+        {showAdminLogin && (
+            <AdminLoginModal 
+                onClose={() => setShowAdminLogin(false)}
+                onLoginSuccess={() => { setIsAdminLoggedIn(true); setShowAdminLogin(false); setShowStats(true); }}
+            />
+        )}
+
+        {alertModal && (
+            <AlertModal 
+                title={alertModal.title}
+                message={alertModal.message}
+                type={alertModal.type}
+                onClose={() => setAlertModal(null)}
+                onConfirm={alertModal.onConfirm}
+            />
+        )}
     </div>
   );
 };

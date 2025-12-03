@@ -20,8 +20,7 @@ export interface FormData {
   idea: string;
   projectName: string;
   model: string; // AI Model
-  songMinutes: string;
-  songSeconds: string;
+  sceneCount: number; // Replaces songMinutes/songSeconds
   
   // Fashion Specifics
   fashionStyle: string; // e.g., Streetwear, Haute Couture, Minimalist

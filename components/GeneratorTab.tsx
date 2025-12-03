@@ -191,12 +191,16 @@ const GeneratorTab: React.FC<GeneratorTabProps> = (props) => {
             <section className="border-t border-gray-200 pt-8">
                  <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Thời Lượng</label>
-                        <div className="flex gap-2 items-center">
-                             <input type="number" name="songMinutes" value={formData.songMinutes} onChange={handleInputChange} className="w-16 bg-transparent border-b border-gray-300 focus:border-black text-center text-black py-2" placeholder="00" min="0" max="30"/>
-                             <span className="text-gray-400">:</span>
-                             <input type="number" name="songSeconds" value={formData.songSeconds} onChange={handleInputChange} className="w-16 bg-transparent border-b border-gray-300 focus:border-black text-center text-black py-2" placeholder="00" min="0" max="59"/>
-                        </div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Số Lượng Scene</label>
+                        <ModernInput 
+                            type="number" 
+                            name="sceneCount" 
+                            value={formData.sceneCount} 
+                            onChange={handleInputChange} 
+                            placeholder="5" 
+                            min={1} 
+                            max={50}
+                        />
                     </div>
                     <div>
                          <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Tên Dự Án</label>
