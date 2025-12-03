@@ -1,0 +1,135 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prompt Pro BESC</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#ffffff">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Light Mode Palette */
+            --luxury-black: #ffffff;      /* Main Background */
+            --luxury-white: #000000;      /* Main Text */
+            --luxury-gray: #f3f4f6;       /* Secondary Backgrounds */
+            --luxury-gold: #D4AF37;       /* Accents */
+            --luxury-border: #e5e7eb;     /* Borders */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--luxury-black);
+            color: var(--luxury-white);
+            height: 100vh;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .font-serif {
+            font-family: 'Playfair Display', serif;
+        }
+
+        /* Scrollbar - Minimal Dark on Light */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { 
+            background: #d1d5db; 
+            border-radius: 0px;
+        }
+        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+        /* UI Components - Luxury Light */
+        
+        .luxury-input {
+            background: transparent;
+            border-bottom: 1px solid var(--luxury-border);
+            border-radius: 0;
+            color: var(--luxury-white);
+            transition: all 0.3s ease;
+        }
+        .luxury-input:focus {
+            border-color: var(--luxury-white);
+            box-shadow: none;
+            outline: none;
+        }
+        
+        .luxury-btn {
+            background: var(--luxury-white);
+            color: var(--luxury-black);
+            border: 1px solid var(--luxury-white);
+            border-radius: 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .luxury-btn:hover {
+            background: transparent;
+            color: var(--luxury-white);
+            border-color: var(--luxury-white);
+        }
+
+        .luxury-card {
+            background: #ffffff;
+            border: 1px solid var(--luxury-border);
+            border-radius: 0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Update select arrow to be black for light mode */
+        select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23000000' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.5rem center;
+            background-size: 1em;
+            padding-right: 2rem;
+            border-radius: 0 !important;
+        }
+        
+        input, textarea, button {
+            border-radius: 0 !important;
+        }
+
+        .dashboard-container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--luxury-black);
+        }
+        .content-area {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        /* Fade In Animation */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.6s ease-out forwards; }
+
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.28.0",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.0",
+    "vite": "https://aistudiocdn.com/vite@^7.1.12",
+    "xlsx": "https://aistudiocdn.com/xlsx@^0.18.5",
+    "crypto-js": "https://aistudiocdn.com/crypto-js@^4.2.0",
+    "path": "https://aistudiocdn.com/path@^0.12.7",
+    "url": "https://aistudiocdn.com/url@^0.11.4"
+  }
+}
+</script>
+</head>
+<body class="antialiased selection:bg-black selection:text-white">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+</body>
+</html>
