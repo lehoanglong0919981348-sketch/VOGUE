@@ -12,6 +12,10 @@ const { randomUUID } = require('crypto');
 autoUpdater.logger = require('electron-log');
 autoUpdater.logger.transports.file.level = 'info';
 
+// AUTO UPDATE CONFIGURATION
+autoUpdater.autoDownload = true;
+autoUpdater.allowPrerelease = false;
+
 const fileWatchers = new Map();
 const jobStateTimestamps = new Map(); // Map<filePath, Map<jobId, { status, timestamp }>>
 // STATS ALGORITHM: fileJobStates tracks which jobs currently have videos ON DISK.
@@ -36,6 +40,47 @@ const ADMIN_CREDENTIALS = {
     username: 'bescuong',
     password: '285792684'
 };
+
+// --- Auto Updater Logic ---
+const sendUpdateStatus = (data) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-status', data);
+  }
+};
+
+autoUpdater.on('checking-for-update', () => {
+  sendUpdateStatus({ status: 'checking', message: 'Đang kiểm tra bản cập nhật...' });
+});
+
+autoUpdater.on('update-available', (info) => {
+  sendUpdateStatus({ status: 'available', message: `Đã tìm thấy bản cập nhật v${info.version}. Đang tải xuống...` });
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  sendUpdateStatus({ status: 'not-available', message: 'Bạn đang sử dụng phiên bản mới nhất.' });
+});
+
+autoUpdater.on('error', (err) => {
+  sendUpdateStatus({ status: 'error', message: `Lỗi cập nhật: ${err.message}` });
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  sendUpdateStatus({ 
+      status: 'downloading', 
+      message: `Đang tải: ${Math.round(progressObj.percent)}%`,
+      percent: progressObj.percent 
+  });
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  sendUpdateStatus({ status: 'downloaded', message: 'Tải xong. Sẵn sàng cài đặt.' });
+  // Also show window modal
+  showWindowAndNotify(
+      'Cập nhật hoàn tất',
+      'Bản cập nhật mới đã sẵn sàng. Nhấn "Cập nhật ngay" để khởi động lại.',
+      'update'
+  );
+});
 
 // --- Helper functions ---
 function readConfig() {
@@ -111,16 +156,16 @@ function incrementPromptCount() {
 // Helper to get files strictly from specific directories (Non-recursive)
 function getFilesFromDirectories(dirs) {
     let files = [];
-    const videoExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm'];
+    const imageExtensions = ['.png', '.jpg', '.jpeg', '.webp'];
     
     dirs.forEach(dir => {
         try {
             if (fs.existsSync(dir)) {
                 const dirents = fs.readdirSync(dir, { withFileTypes: true });
-                const videoFiles = dirents
-                    .filter(dirent => dirent.isFile() && videoExtensions.includes(path.extname(dirent.name).toLowerCase()))
+                const imageFiles = dirents
+                    .filter(dirent => dirent.isFile() && imageExtensions.includes(path.extname(dirent.name).toLowerCase()))
                     .map(dirent => path.join(dir, dirent.name));
-                files = [...files, ...videoFiles];
+                files = [...files, ...imageFiles];
             }
         } catch (e) {
             // Directory might not exist yet, which is fine
@@ -129,18 +174,18 @@ function getFilesFromDirectories(dirs) {
     return files;
 }
 
-// Core function to find videos matching jobs
+// Core function to find images matching jobs
 function scanVideosInternal(jobs, excelFilePath) {
     const rootDir = path.dirname(excelFilePath);
     const excelNameNoExt = path.basename(excelFilePath, '.xlsx');
     const subDir = path.join(rootDir, excelNameNoExt);
     
     const targetDirs = [rootDir, subDir];
-    const videoFiles = getFilesFromDirectories(targetDirs);
+    const foundFiles = getFilesFromDirectories(targetDirs);
     
     return jobs.map(job => {
         // If manually linked and exists, keep it
-        if (job.videoPath && fs.existsSync(job.videoPath)) return job;
+        if (job.generatedFilePath && fs.existsSync(job.generatedFilePath)) return job;
         
         // Strict ID Matching
         const jobId = job.id; 
@@ -149,25 +194,25 @@ function scanVideosInternal(jobs, excelFilePath) {
             if (idNumber) {
                // Strict Regex: Job_1 matches Job_01 but NOT Job_10
                const regex = new RegExp(`Job_0*${idNumber}(?:[^0-9]|$)`, 'i');
-               const matchedFile = videoFiles.find(f => {
+               const matchedFile = foundFiles.find(f => {
                     const fileName = path.basename(f);
                     return regex.test(fileName);
                });
-               if (matchedFile) return { ...job, videoPath: matchedFile, status: 'Completed' };
+               if (matchedFile) return { ...job, generatedFilePath: matchedFile, status: 'Completed' };
             }
         }
         
         // Fallback: Name matching (if Job ID fails)
-        if (job.videoName) {
-             const cleanName = job.videoName.trim();
+        if (job.fileName) {
+             const cleanName = job.fileName.trim();
              const escapedName = cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
              const nameRegex = new RegExp(`${escapedName}(?:[^0-9]|$)`, 'i');
              
-             const matchedFileByName = videoFiles.find(f => {
+             const matchedFileByName = foundFiles.find(f => {
                  const fileName = path.basename(f, path.extname(f));
                  return nameRegex.test(fileName);
              });
-             if (matchedFileByName) return { ...job, videoPath: matchedFileByName, status: 'Completed' };
+             if (matchedFileByName) return { ...job, generatedFilePath: matchedFileByName, status: 'Completed' };
         }
         return job;
     });
@@ -180,7 +225,7 @@ function syncStatsAndState(filePath, jobs, explicitInit = false) {
 
     // IMPORTANT: If we have never tracked this file in this session (RAM),
     // we mark it as "First Encounter".
-    // This implies that ANY video found right now is an "Old Video" (Baseline).
+    // This implies that ANY file found right now is an "Old File" (Baseline).
     // We will show it, but NOT count it.
     if (!fileJobStates.has(filePath)) {
         fileJobStates.set(filePath, new Set());
@@ -193,11 +238,11 @@ function syncStatsAndState(filePath, jobs, explicitInit = false) {
     let newCompletionCount = 0;
 
     updatedJobs.forEach(job => {
-        const hasVideo = !!job.videoPath;
+        const hasFile = !!job.generatedFilePath;
         const jobId = job.id;
 
-        if (hasVideo) {
-            // If the video exists on disk...
+        if (hasFile) {
+            // If the file exists on disk...
             if (!knownCompletedSet.has(jobId)) {
                 // ...and we didn't know about it in RAM
                 knownCompletedSet.add(jobId);
@@ -206,15 +251,15 @@ function syncStatsAndState(filePath, jobs, explicitInit = false) {
                 // We ONLY increment the counter if:
                 // 1. It is NOT an explicit initialization (Watcher start).
                 // 2. AND it is NOT the first time we are seeing this file in this session.
-                // This ensures old videos (found on first load/reload) are ignored by stats,
-                // but strictly new videos (found on subsequent 10s checks or watcher events) are counted.
+                // This ensures old files (found on first load/reload) are ignored by stats,
+                // but strictly new files (found on subsequent 10s checks or watcher events) are counted.
                 if (!explicitInit && !isFirstTimeSeeingFile) {
                     incrementDailyStat();
                     newCompletionCount++;
                 }
             }
         } else {
-            // If the video does NOT exist on disk (Deleted or Retry clicked)
+            // If the file does NOT exist on disk (Deleted or Retry clicked)
             // We remove it from RAM so that if it appears again later, it counts as +1.
             if (knownCompletedSet.has(jobId)) {
                 knownCompletedSet.delete(jobId);
@@ -223,17 +268,6 @@ function syncStatsAndState(filePath, jobs, explicitInit = false) {
     });
 
     return { updatedJobs, newCompletionCount };
-}
-
-const isPackaged = app.isPackaged;
-function getFfmpegPath() {
-    const binary = 'ffmpeg';
-    const binaryName = process.platform === 'win32' ? `${binary}.exe` : binary;
-    const basePath = isPackaged
-        ? path.join(process.resourcesPath, 'ffmpeg')
-        : path.join(__dirname, 'resources', 'ffmpeg');
-    const platformFolder = process.platform === 'win32' ? 'win' : 'mac';
-    return path.join(basePath, platformFolder, binaryName);
 }
 
 function parseExcelData(data) {
@@ -266,10 +300,17 @@ function parseExcelData(data) {
                 imagePath: get('IMAGE_PATH') || '',
                 imagePath2: get('IMAGE_PATH_2') || '',
                 imagePath3: get('IMAGE_PATH_3') || '',
+                imagePath4: get('IMAGE_PATH_4') || '',
+                imagePath5: get('IMAGE_PATH_5') || '',
+                imagePath6: get('IMAGE_PATH_6') || '',
+                imagePath7: get('IMAGE_PATH_7') || '',
+                imagePath8: get('IMAGE_PATH_8') || '',
+                imagePath9: get('IMAGE_PATH_9') || '',
+                imagePath10: get('IMAGE_PATH_10') || '',
                 status: status,
-                videoName: get('VIDEO_NAME') || '',
-                typeVideo: get('TYPE_VIDEO') || '',
-                videoPath: get('VIDEO_PATH') || undefined,
+                fileName: get('IMAGE_NAME') || '',
+                typeJob: get('TYPE_JOB') || '',
+                generatedFilePath: get('GENERATED_PATH') || undefined,
             };
         }).filter(job => job.id && String(job.id).trim());
     } catch (e) {
@@ -337,7 +378,7 @@ function createWindow() {
     webPreferences: {
       contextIsolation: false,
       nodeIntegration: true,
-      webSecurity: false // Disabled to allow loading local video files in 'src'
+      webSecurity: false // Disabled to allow loading local image files in 'src'
     },
     icon: path.join(__dirname, 'assets/icon.png')
   });
@@ -347,14 +388,6 @@ function createWindow() {
     : path.join(__dirname, 'index.html');
 
   mainWindow.loadFile(startUrl);
-  
-  autoUpdater.on('update-downloaded', () => {
-      showWindowAndNotify(
-          'Có bản cập nhật mới!',
-          'Bản cập nhật mới đã được tải về. Vui lòng nhấn OK để khởi động lại ứng dụng.',
-          'update'
-      );
-  });
 }
 
 app.whenReady().then(() => {
@@ -371,16 +404,24 @@ app.whenReady().then(() => {
           click: () => {
             const focusedWindow = BrowserWindow.getFocusedWindow();
             if (focusedWindow) {
-              dialog.showMessageBox(focusedWindow, { type: 'info', title: 'About V-Fashion', message: `V-Fashion v${app.getVersion()}`, detail: 'An application to generate professional visual scripts for Fashion Videos and Live Shows.\n\nCreated by Cường-VFATS.' });
+              dialog.showMessageBox(focusedWindow, { type: 'info', title: 'About V-Fashion', message: `V-Fashion v${app.getVersion()}`, detail: 'An application to generate professional visual scripts for Fashion Photoshoots.\n\nCreated by Cường-VFATS.' });
             }
           }
+        },
+        {
+            label: 'Check for Updates',
+            click: () => autoUpdater.checkForUpdatesAndNotify()
         }
       ]
     }
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
   createWindow();
-  autoUpdater.checkForUpdatesAndNotify().catch(err => console.log('Updater error:', err));
+  
+  // Initial check on startup (quiet mode, only notify if update found)
+  if (app.isPackaged) {
+     autoUpdater.checkForUpdatesAndNotify().catch(err => console.log('Startup updater error:', err));
+  }
 
   const STUCK_JOB_TIMEOUT = 5 * 60 * 1000; 
 
@@ -425,6 +466,19 @@ ipcMain.handle('save-app-config', async (event, configToSave) => {
     } catch (error) {
         console.error('Error saving config:', error);
         return { success: false, error: error.message };
+    }
+});
+
+// Manual Check for Updates IPC
+ipcMain.handle('check-for-updates', async () => {
+    if (!app.isPackaged) {
+        return { success: false, message: 'Tính năng cập nhật chỉ có sẵn trên bản cài đặt (Production).' };
+    }
+    try {
+        await autoUpdater.checkForUpdates();
+        return { success: true };
+    } catch (error) {
+        return { success: false, message: `Lỗi: ${error.message}` };
     }
 });
 
@@ -481,8 +535,8 @@ ipcMain.handle('get-stats', async () => {
     const total = historyArray.reduce((sum, item) => sum + item.count, 0);
     const promptCount = stats.promptCount || 0;
     
-    // Credit calculation: 1 Video = 10 Credits
-    const totalCredits = total * 10;
+    // Credit calculation: 1 Image = 2 Credits
+    const totalCredits = total * 2;
 
     return {
         machineId: config.machineId || 'Unknown',
@@ -590,14 +644,12 @@ ipcMain.on('start-watching-file', (event, filePath) => {
 
                             // Check for completion
                             if (updatedJobs.length > 0) {
-                                // Check if ALL videos are physically present or marked completed
-                                const allDone = updatedJobs.every(j => !!j.videoPath || j.status === 'Completed');
+                                // Check if ALL files are physically present or marked completed
+                                const allDone = updatedJobs.every(j => !!j.generatedFilePath || j.status === 'Completed');
                                 if (allDone) {
-                                    // Use 'unknown' flag to prevent spamming notifications if nothing actually changed status recently?
-                                    // For now, simple check: If all done, show alert.
                                     showWindowAndNotify(
                                         'Hoàn tất xử lý!',
-                                        `File "${path.basename(filePath)}" đã hoàn thành 100% video.`,
+                                        `File "${path.basename(filePath)}" đã hoàn thành 100% ảnh.`,
                                         'completion'
                                     );
                                 }
@@ -621,17 +673,10 @@ ipcMain.on('stop-watching-file', (event, filePath) => {
     if (jobStateTimestamps.has(filePath)) {
         jobStateTimestamps.delete(filePath);
     }
-    // Optional: Clear session memory? No, keep it in case user re-opens file in same session.
-    // fileJobStates.delete(filePath);
 });
 
 ipcMain.handle('find-videos-for-jobs', async (event, { jobs, excelFilePath }) => {
     try {
-        // This is called by the UI manual refresh loop.
-        // It must also perform the differential check to ensure stats are captured 
-        // even if the file watcher didn't trigger (e.g. video created without excel update).
-        // CRITICAL: We pass 'false' for explicitInit, BUT 'syncStatsAndState' will internally
-        // check if it's the first encounter to prevent double counting.
         const { updatedJobs } = syncStatsAndState(excelFilePath, jobs, false);
         return { success: true, jobs: updatedJobs };
     } catch (error) {
@@ -639,17 +684,12 @@ ipcMain.handle('find-videos-for-jobs', async (event, { jobs, excelFilePath }) =>
     }
 });
 
-ipcMain.handle('check-ffmpeg', async () => {
-    const ffmpegPath = getFfmpegPath();
-    return { found: fs.existsSync(ffmpegPath) };
-});
-
 ipcMain.handle('open-video-file-dialog', async () => {
     const win = BrowserWindow.getFocusedWindow();
     if (!win) return { success: false, error: 'No active window' };
     const result = await dialog.showOpenDialog(win, {
         properties: ['openFile'],
-        filters: [{ name: 'Videos', extensions: ['mp4', 'mov', 'avi', 'mkv'] }]
+        filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
     });
     if (!result.canceled && result.filePaths.length > 0) {
         return { success: true, path: result.filePaths[0] };
@@ -657,100 +697,9 @@ ipcMain.handle('open-video-file-dialog', async () => {
     return { success: false, error: 'Canceled' };
 });
 
-ipcMain.handle('execute-ffmpeg-combine', async (event, { jobs, targetDuration, mode, excelFileName }) => {
-    const ffmpegPath = getFfmpegPath();
-    if (!fs.existsSync(ffmpegPath)) return { success: false, error: 'FFmpeg executable not found.' };
-
-    const win = BrowserWindow.getFocusedWindow();
-    const saveResult = await dialog.showSaveDialog(win, {
-        title: 'Lưu Video Đã Ghép',
-        defaultPath: `Combined_${excelFileName.replace('.xlsx', '')}.mp4`,
-        filters: [{ name: 'MP4 Video', extensions: ['mp4'] }]
-    });
-
-    if (saveResult.canceled || !saveResult.filePath) return { success: false, error: 'Save dialog canceled' };
-
-    const outputPath = saveResult.filePath;
-    const listPath = path.join(path.dirname(outputPath), `concat_list_${Date.now()}.txt`);
-
-    try {
-        const fileContent = jobs.map(j => `file '${j.videoPath.replace(/'/g, "'\\''")}'`).join('\n');
-        fs.writeFileSync(listPath, fileContent);
-
-        const args = ['-f', 'concat', '-safe', '0', '-i', listPath];
-        if (mode === 'timed' && targetDuration) {
-             args.push('-t', String(targetDuration));
-        }
-        args.push('-c', 'copy', '-y', outputPath);
-
-        return new Promise((resolve) => {
-            execFile(ffmpegPath, args, (error, stdout, stderr) => {
-                try { fs.unlinkSync(listPath); } catch (e) {}
-                if (error) {
-                    resolve({ success: false, error: `FFmpeg failed: ${stderr}` });
-                } else {
-                    resolve({ success: true, filePath: outputPath });
-                }
-            });
-        });
-
-    } catch (err) {
-        return { success: false, error: err.message };
-    }
-});
-
-ipcMain.handle('execute-ffmpeg-combine-all', async (event, filesToProcess) => {
-    const ffmpegPath = getFfmpegPath();
-    if (!fs.existsSync(ffmpegPath)) return { canceled: false, successes: [], failures: ["FFmpeg not found"] };
-
-    const win = BrowserWindow.getFocusedWindow();
-    const folderResult = await dialog.showOpenDialog(win, {
-        title: 'Chọn thư mục lưu các video đã ghép',
-        properties: ['openDirectory']
-    });
-
-    if (folderResult.canceled || folderResult.filePaths.length === 0) return { canceled: true, successes: [], failures: [] };
-    
-    const outputDir = folderResult.filePaths[0];
-    const successes = [];
-    const failures = [];
-
-    for (const file of filesToProcess) {
-        const safeName = file.name.replace('.xlsx', '');
-        const outputPath = path.join(outputDir, `Combined_${safeName}.mp4`);
-        const listPath = path.join(outputDir, `concat_list_${safeName}_${Date.now()}.txt`);
-
-        try {
-            const fileContent = file.jobs.map(j => `file '${j.videoPath.replace(/'/g, "'\\''")}'`).join('\n');
-            fs.writeFileSync(listPath, fileContent);
-            const args = ['-f', 'concat', '-safe', '0', '-i', listPath, '-c', 'copy', '-y', outputPath];
-            await new Promise((resolve) => {
-                execFile(ffmpegPath, args, (error, stdout, stderr) => {
-                    try { fs.unlinkSync(listPath); } catch (e) {}
-                    if (error) {
-                        failures.push(file.name);
-                    } else {
-                        successes.push(file.name);
-                    }
-                    resolve();
-                });
-            });
-        } catch (err) {
-            failures.push(file.name);
-        }
-    }
-    return { canceled: false, successes, failures };
-});
-
 ipcMain.on('open-folder', (event, dirPath) => {
     if (dirPath && fs.existsSync(dirPath)) {
         shell.openPath(dirPath);
-    }
-});
-
-ipcMain.on('open-video-path', (event, videoPath) => {
-    if (videoPath && fs.existsSync(videoPath)) {
-        shell.openPath(videoPath);
     }
 });
 
@@ -767,7 +716,7 @@ ipcMain.handle('delete-video-file', async (event, videoPath) => {
         buttons: ['Hủy', 'Xóa'],
         defaultId: 1,
         title: 'Xác nhận xóa',
-        message: 'Bạn có chắc chắn muốn xóa file video này không? Hành động này không thể hoàn tác.'
+        message: 'Bạn có chắc chắn muốn xóa file này không? Hành động này không thể hoàn tác.'
     });
 
     if (choice.response === 1) {

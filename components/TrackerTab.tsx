@@ -1,11 +1,10 @@
+
 import React from 'react';
-import { JobStatus, TrackedFile, VideoJob } from '../types';
+import { JobStatus, TrackedFile, ImageJob } from '../types';
 import { RetryIcon, ExternalLinkIcon, FolderIcon, TrashIcon, VideoIcon, LoaderIcon, CopyIcon, CogIcon } from './Icons';
 
 interface TrackerTabProps {
     feedback: { type: 'error' | 'success' | 'info', message: string } | null;
-    lastCombinedVideoPath: string | null;
-    handlePlayVideo: (path: string) => void;
     trackedFiles: TrackedFile[];
     handleOpenNewFile: () => void;
     activeTrackerFileIndex: number;
@@ -13,7 +12,6 @@ interface TrackerTabProps {
     handleCloseTrackerTab: (index: number) => void;
     stats: { completed: number; inProgress: number; failed: number; total: number; } | null;
     currentFile: TrackedFile | null;
-    formatDuration: (seconds?: number) => string;
     handleReloadVideos: () => void;
     handleRetryStuckJobs: () => void;
     handleOpenToolFlows: () => void;
@@ -21,11 +19,6 @@ interface TrackerTabProps {
     handleOpenFolder: (path?: string) => void;
     handleCopyPath: (path?: string) => void;
     getFolderPath: (path?: string) => string;
-    ffmpegFound: boolean | null;
-    handleCombineAllFiles: () => void;
-    isCombiningAll: boolean;
-    isCombiningVideo: boolean;
-    handleExecuteCombine: (mode: 'normal' | 'timed') => void;
     handleLinkVideo: (jobId: string, fileIndex: number) => void;
     handleShowInFolder: (path?: string) => void;
     handleDeleteVideo: (jobId: string, path?: string) => void;
@@ -52,45 +45,39 @@ const StatCard: React.FC<{ label: string; value: string | number }> = ({ label, 
 
 const TrackerTab: React.FC<TrackerTabProps> = (props) => {
     const { 
-        feedback, lastCombinedVideoPath, handlePlayVideo, trackedFiles, handleOpenNewFile,
+        feedback, trackedFiles, handleOpenNewFile,
         activeTrackerFileIndex, setActiveTrackerFileIndex, handleCloseTrackerTab, stats, currentFile,
-        formatDuration, handleReloadVideos, handleRetryStuckJobs, handleOpenToolFlows, handleSetToolFlowsPath,
-        handleOpenFolder, handleCopyPath, getFolderPath, ffmpegFound, handleCombineAllFiles, isCombiningAll,
-        isCombiningVideo, handleExecuteCombine, handleLinkVideo, handleShowInFolder, handleDeleteVideo, handleRetryJob
+        handleReloadVideos, handleRetryStuckJobs, handleOpenToolFlows, handleSetToolFlowsPath,
+        handleOpenFolder, handleCopyPath, getFolderPath,
+        handleLinkVideo, handleShowInFolder, handleDeleteVideo, handleRetryJob
     } = props;
 
-    const renderResultCell = (job: VideoJob, fileIndex: number) => {
-        if(job.status === 'Completed' && job.videoPath) {
+    const renderResultCell = (job: ImageJob, fileIndex: number) => {
+        if(job.status === 'Completed' && job.generatedFilePath) {
              return (
-                <div className="relative group w-48 h-28 bg-gray-100 overflow-hidden cursor-pointer border border-gray-200 hover:border-black transition-all shadow-sm hover:shadow-md" onClick={() => handlePlayVideo(job.videoPath!)}>
-                    <video 
-                        src={`file://${job.videoPath}`}
+                <div className="relative group w-28 h-28 bg-gray-100 overflow-hidden cursor-pointer border border-gray-200 hover:border-black transition-all shadow-sm hover:shadow-md" onClick={() => handleShowInFolder(job.generatedFilePath!)}>
+                    <img 
+                        src={`file://${job.generatedFilePath}`}
+                        alt="Result"
                         className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity duration-500"
-                        muted
-                        preload="metadata"
-                        onMouseEnter={(e) => (e.target as HTMLVideoElement).play().catch(() => {})}
-                        onMouseLeave={(e) => { const v = (e.target as HTMLVideoElement); v.pause(); v.currentTime = 0; }}
                     />
                 </div>
               );
         }
         if (job.status === 'Processing' || job.status === 'Generating') return <div className="flex justify-center h-28 items-center text-[#D4AF37]"><LoaderIcon /></div>;
-        if (job.status === 'Completed' && !job.videoPath) return (
-             <div className="flex flex-col items-center justify-center w-48 h-28 border border-red-200 bg-red-50 p-1">
+        if (job.status === 'Completed' && !job.generatedFilePath) return (
+             <div className="flex flex-col items-center justify-center w-28 h-28 border border-red-200 bg-red-50 p-1">
                  <span className="text-[10px] font-bold text-red-600 uppercase mb-1">Thiếu File</span>
                  <button onClick={() => handleLinkVideo(job.id, fileIndex)} className="text-[10px] text-gray-500 hover:text-black uppercase tracking-wider underline">Link</button>
              </div>
         );
-        return <div className="h-28 flex items-center justify-center text-gray-300"><VideoIcon className="w-6 h-6"/></div>;
+        return <div className="h-28 flex items-center justify-center text-gray-300 w-28 bg-gray-50"><span className="text-2xl">📷</span></div>;
     };
 
     return (
         <main className="h-full flex flex-col space-y-0 font-sans bg-white">
             {feedback && ( <div className={`fixed bottom-8 right-8 z-50 text-xs font-bold uppercase tracking-widest px-6 py-4 border shadow-lg ${ feedback.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' : 'bg-white border-black text-black' }`}>
                 <span>{feedback.message}</span>
-                {feedback.type === 'success' && lastCombinedVideoPath && (
-                    <button onClick={() => handlePlayVideo(lastCombinedVideoPath)} className="ml-4 underline font-bold">XEM VIDEO</button>
-                )}
             </div> )}
             
             {trackedFiles.length === 0 ? (
@@ -135,7 +122,7 @@ const TrackerTab: React.FC<TrackerTabProps> = (props) => {
                                             <div className={`h-full transition-all duration-500 ${progress === 100 ? 'bg-black' : 'bg-[#D4AF37]'}`} style={{ width: `${progress}%` }}></div>
                                         </div>
                                         <div className="text-[10px] text-gray-400 font-mono">
-                                            {completedCount.toString().padStart(2, '0')} / {totalCount.toString().padStart(2, '0')} SCENES
+                                            {completedCount.toString().padStart(2, '0')} / {totalCount.toString().padStart(2, '0')} PHOTOS
                                         </div>
                                     </div>
                                 )
@@ -153,13 +140,8 @@ const TrackerTab: React.FC<TrackerTabProps> = (props) => {
                                         <StatCard label="HOÀN THÀNH" value={`${stats.completed}/${stats.total}`} />
                                         <StatCard label="ĐANG CHỜ" value={stats.inProgress} />
                                         <StatCard label="LỖI" value={stats.failed} />
-                                        <StatCard label="THỜI GIAN" value={formatDuration(currentFile.targetDurationSeconds)} />
                                     </div>
                                     
-                                    <div className="flex gap-4">
-                                        <button onClick={handleCombineAllFiles} disabled={isCombiningAll || !ffmpegFound} className="luxury-btn px-6 py-3 text-xs bg-white text-black border-2 border-black disabled:opacity-30 hover:bg-black hover:text-white">XUẤT TẤT CẢ</button>
-                                        <button onClick={() => handleExecuteCombine('normal')} disabled={isCombiningVideo || !ffmpegFound} className="luxury-btn px-6 py-3 text-xs bg-black text-white border-2 border-black disabled:opacity-30 hover:bg-[#D4AF37] hover:border-[#D4AF37]">GHÉP VIDEO</button>
-                                    </div>
                                 </div>
 
                                 <div className="flex flex-wrap items-center gap-6">
@@ -191,8 +173,8 @@ const TrackerTab: React.FC<TrackerTabProps> = (props) => {
                                             <tr>
                                                 <th className="px-8 py-5 text-left font-bold w-24 bg-gray-50">ID</th>
                                                 <th className="px-8 py-5 text-left font-bold w-32 bg-gray-50">TRẠNG THÁI</th>
-                                                <th className="px-8 py-5 text-left font-bold bg-gray-50">TÊN VIDEO</th>
-                                                <th className="px-8 py-5 text-center font-bold w-64 bg-gray-50">XEM TRƯỚC</th>
+                                                <th className="px-8 py-5 text-left font-bold bg-gray-50">TÊN ẢNH</th>
+                                                <th className="px-8 py-5 text-center font-bold w-48 bg-gray-50">PREVIEW</th>
                                                 <th className="px-8 py-5 text-right font-bold w-40 bg-gray-50">THAO TÁC</th>
                                             </tr>
                                         </thead>
@@ -203,14 +185,14 @@ const TrackerTab: React.FC<TrackerTabProps> = (props) => {
                                                     <td className="px-8 py-6 font-mono text-xs font-bold uppercase tracking-wide">
                                                         <span className={getStatusBadge(job.status)}>{job.status === 'Pending' ? 'Đang chờ' : job.status === 'Processing' ? 'Đang xử lý' : job.status === 'Generating' ? 'Đang tạo' : job.status === 'Completed' ? 'Hoàn thành' : 'Lỗi'}</span>
                                                     </td>
-                                                    <td className="px-8 py-6 font-mono text-xs text-gray-700 font-medium">{job.videoName}</td>
+                                                    <td className="px-8 py-6 font-mono text-xs text-gray-700 font-medium">{job.fileName}</td>
                                                     <td className="px-8 py-6 flex justify-center">{renderResultCell(job, activeTrackerFileIndex)}</td>
                                                     <td className="px-8 py-6 text-right">
                                                         <div className="flex items-center justify-end gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            {job.videoPath && (
+                                                            {job.generatedFilePath && (
                                                                 <>
-                                                                    <button onClick={() => handleShowInFolder(job.videoPath)} className="text-gray-400 hover:text-black transition transform hover:scale-110" title="Mở thư mục"><FolderIcon className="w-4 h-4"/></button>
-                                                                    <button onClick={() => handleDeleteVideo(job.id, job.videoPath)} className="text-gray-400 hover:text-red-500 transition transform hover:scale-110" title="Xóa"><TrashIcon className="w-4 h-4"/></button>
+                                                                    <button onClick={() => handleShowInFolder(job.generatedFilePath)} className="text-gray-400 hover:text-black transition transform hover:scale-110" title="Mở thư mục"><FolderIcon className="w-4 h-4"/></button>
+                                                                    <button onClick={() => handleDeleteVideo(job.id, job.generatedFilePath)} className="text-gray-400 hover:text-red-500 transition transform hover:scale-110" title="Xóa"><TrashIcon className="w-4 h-4"/></button>
                                                                 </>
                                                             )}
                                                             <button onClick={() => handleRetryJob(job.id)} className="text-gray-400 hover:text-black transition transform hover:scale-110" title="Reset"><RetryIcon className="w-4 h-4"/></button>

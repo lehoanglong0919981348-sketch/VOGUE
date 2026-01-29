@@ -4,6 +4,10 @@
   "description": "An application to generate professional visual scripts for Fashion Videos by transforming ideas and reference images into detailed prompts for AI video models.",
   "main": "main.js",
   "homepage": "./",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME.git"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -38,6 +42,13 @@
   "build": {
     "appId": "com.vfashion.app",
     "productName": "V-Fashion",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "YOUR_GITHUB_USERNAME",
+        "repo": "YOUR_REPO_NAME"
+      }
+    ],
     "files": [
       "dist/**/*",
       "main.js",

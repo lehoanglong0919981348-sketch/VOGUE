@@ -1,3 +1,4 @@
+
 import React, {
   useState,
   useCallback,
@@ -8,9 +9,9 @@ import React, {
 import { GoogleGenAI, Type } from '@google/genai';
 import * as XLSX from 'xlsx';
 import CryptoJS from 'crypto-js';
-import { Scene, FormData, ActiveTab, VideoJob, JobStatus, TrackedFile, ApiKey, AppConfig, Preset } from './types';
+import { ImagePrompt, FormData, ActiveTab, ImageJob, JobStatus, TrackedFile, ApiKey, AppConfig, Preset } from './types';
 import { fashionSystemPrompt } from './constants';
-import { LoaderIcon, KeyIcon, ChartIcon, ShieldIcon } from './components/Icons';
+import { LoaderIcon, KeyIcon, ChartIcon, ShieldIcon, UpdateIcon } from './components/Icons';
 
 // Components
 import Activation from './components/Activation';
@@ -32,18 +33,26 @@ const App: React.FC = () => {
     idea: '',
     projectName: '',
     model: 'gemini-2.5-flash',
-    sceneCount: 5, // Default number of prompts
+    imageCount: 5, // Default number of prompts
     fashionStyle: 'High Fashion / Editorial',
     modelDemographic: 'Female Model',
     setting: 'Studio / Minimalist',
-    cameraMood: 'Dynamic / Fast Paced',
-    fashionImages: [], // Array of up to 3 images
+    cameraMood: 'Natural / Soft',
+    
+    // New Defaults
+    quality: '4K',
+    faceStrength: 100,
+    shotAngle: 'Full Body',
+    aspectRatio: '9:16',
+
+    // Initialize with 10 null slots to maintain fixed positions
+    fashionImages: Array(10).fill(null), 
     temperature: 0.4,
   });
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<{ type: 'error' | 'success' | 'info', message: string } | null>(null);
-  const [generatedScenes, setGeneratedScenes] = useState<Scene[]>([]);
+  const [generatedImages, setGeneratedImages] = useState<ImagePrompt[]>([]);
   
   const [isActivated, setIsActivated] = useState<boolean>(false);
   const [machineId, setMachineId] = useState<string>('');
@@ -56,11 +65,6 @@ const App: React.FC = () => {
   const [trackedFiles, setTrackedFiles] = useState<TrackedFile[]>([]);
   const [activeTrackerFileIndex, setActiveTrackerFileIndex] = useState<number>(0);
 
-  const [ffmpegFound, setFfmpegFound] = useState<boolean | null>(null);
-  const [isCombiningVideo, setIsCombiningVideo] = useState(false);
-  const [isCombiningAll, setIsCombiningAll] = useState(false);
-  const [lastCombinedVideoPath, setLastCombinedVideoPath] = useState<string | null>(null);
-
   const [presets, setPresets] = useState<Preset[]>([]);
   const [newPresetName, setNewPresetName] = useState('');
   const [selectedPresetId, setSelectedPresetId] = useState('');
@@ -71,6 +75,9 @@ const App: React.FC = () => {
   const [showStats, setShowStats] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+
+  // --- Update State ---
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
 
   const fileDiscoveryRef = useRef<Set<string>>(new Set());
   const SECRET_KEY = 'your-super-secret-key-for-mv-prompt-generator-pro-2024';
@@ -197,7 +204,7 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const parseExcelData = (data: Uint8Array): VideoJob[] => {
+  const parseExcelData = (data: Uint8Array): ImageJob[] => {
     const workbook = XLSX.read(data, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
@@ -226,10 +233,17 @@ const App: React.FC = () => {
             imagePath: get('IMAGE_PATH') || '',
             imagePath2: get('IMAGE_PATH_2') || '',
             imagePath3: get('IMAGE_PATH_3') || '',
+            imagePath4: get('IMAGE_PATH_4') || '',
+            imagePath5: get('IMAGE_PATH_5') || '',
+            imagePath6: get('IMAGE_PATH_6') || '',
+            imagePath7: get('IMAGE_PATH_7') || '',
+            imagePath8: get('IMAGE_PATH_8') || '',
+            imagePath9: get('IMAGE_PATH_9') || '',
+            imagePath10: get('IMAGE_PATH_10') || '',
             status: status,
-            videoName: get('VIDEO_NAME') || '',
-            typeVideo: get('TYPE_VIDEO') || '',
-            videoPath: get('VIDEO_PATH') || undefined,
+            fileName: get('IMAGE_NAME') || '',
+            typeJob: get('TYPE_JOB') || '',
+            generatedFilePath: get('GENERATED_PATH') || undefined,
         };
     }).filter(job => job.id && String(job.id).trim());
   };
@@ -240,7 +254,6 @@ const App: React.FC = () => {
           const newJobs = parseExcelData(content);
           setTrackedFiles(prevFiles => prevFiles.map(file => file.path === path ? { ...file, jobs: newJobs } : file));
       };
-      const handleCombineAllProgress = (_event: any, { message }: { message: string }) => { setFeedback({ type: 'info', message }); };
       const handleShowAlertModal = (_event: any, data: { title: string, message: string, type: 'completion' | 'update', onConfirm?: () => void }) => {
         if (data.type === 'update') {
             setAlertModal({ ...data, onConfirm: () => ipcRenderer.send('restart_app') });
@@ -248,13 +261,19 @@ const App: React.FC = () => {
             setAlertModal(data);
         }
       };
+      // Handle update status from Main process
+      const handleUpdateStatus = (_event: any, data: { status: string, message: string }) => {
+          setCheckingUpdate(data.status === 'checking' || data.status === 'downloading');
+          setFeedback({ type: 'info', message: data.message });
+      };
+
       ipcRenderer.on('file-content-updated', handleFileUpdate);
-      ipcRenderer.on('combine-all-progress', handleCombineAllProgress);
       ipcRenderer.on('show-alert-modal', handleShowAlertModal);
+      ipcRenderer.on('update-status', handleUpdateStatus);
       return () => {
           ipcRenderer.removeListener('file-content-updated', handleFileUpdate);
-          ipcRenderer.removeListener('combine-all-progress', handleCombineAllProgress);
           ipcRenderer.removeListener('show-alert-modal', handleShowAlertModal);
+          ipcRenderer.removeListener('update-status', handleUpdateStatus);
       };
   }, []);
 
@@ -296,15 +315,14 @@ const App: React.FC = () => {
   };
   
   useEffect(() => {
-    setLastCombinedVideoPath(null);
     const currentFile = trackedFiles.length > 0 ? trackedFiles[activeTrackerFileIndex] : null;
     if (isElectron && ipcRenderer && currentFile?.path) {
-        const hasIncompleteJobs = currentFile.jobs.some(j => j.status === 'Completed' && !j.videoPath);
+        const hasIncompleteJobs = currentFile.jobs.some(j => j.status === 'Completed' && !j.generatedFilePath);
         const discoveryKey = `${currentFile.path}-${currentFile.jobs.map(j => j.status).join(',')}`;
         if (hasIncompleteJobs && !fileDiscoveryRef.current.has(discoveryKey)) {
             const filePath = currentFile.path;
             ipcRenderer.invoke('find-videos-for-jobs', { jobs: currentFile.jobs, excelFilePath: filePath })
-                .then((result: { success: boolean; jobs: VideoJob[]; error?: string; }) => {
+                .then((result: { success: boolean; jobs: ImageJob[]; error?: string; }) => {
                     if (result.success) {
                         setTrackedFiles(prevFiles => prevFiles.map(file => file.path === filePath ? { ...file, jobs: result.jobs } : file));
                         fileDiscoveryRef.current.add(discoveryKey);
@@ -314,12 +332,6 @@ const App: React.FC = () => {
     }
   }, [trackedFiles, activeTrackerFileIndex]);
 
-  useEffect(() => {
-    if (activeTab === 'tracker' && isElectron && ipcRenderer) {
-      setFfmpegFound(null);
-      ipcRenderer.invoke('check-ffmpeg').then((result: { found: boolean }) => { setFfmpegFound(result.found); });
-    }
-  }, [activeTab]);
 
   // Handle Input Logic
   const handleInputChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -329,11 +341,13 @@ const App: React.FC = () => {
         setFormData((prev) => ({ ...prev, [name]: checked }));
       } else if (name === 'temperature') {
         setFormData((prev) => ({ ...prev, [name]: parseFloat(value) }));
-      } else if (name === 'sceneCount') {
+      } else if (name === 'faceStrength') {
+        setFormData((prev) => ({ ...prev, [name]: parseInt(value) }));
+      } else if (name === 'imageCount') {
          let val = parseInt(value);
          if (isNaN(val) || val < 1) val = 1;
          if (val > 50) val = 50; // Max reasonable limit
-         setFormData(prev => ({ ...prev, sceneCount: val }));
+         setFormData(prev => ({ ...prev, imageCount: val }));
       } else { setFormData((prev) => ({ ...prev, [name]: value })); }
     },[],
   );
@@ -350,7 +364,7 @@ const App: React.FC = () => {
               
               setFormData(prev => {
                   const newImages = [...prev.fashionImages];
-                  // Assign by specific index (0=Model, 1=Outfit, 2=Setting)
+                  // Assign by specific index (0=Model, 1=Outfit, 2=Setting, 3-9=Acc)
                   newImages[index] = { file, base64, mimeType, preview: reader.result as string };
                   return { ...prev, fashionImages: newImages };
               });
@@ -362,42 +376,71 @@ const App: React.FC = () => {
   const handleRemoveFashionImage = (index: number) => {
       setFormData(prev => {
           const newImages = [...prev.fashionImages];
-          newImages.splice(index, 1);
+          // Do not splice, just nullify to keep the slot empty and prevent shifting
+          newImages[index] = null;
           return { ...prev, fashionImages: newImages };
       });
   };
 
-  // --- Generate Logic (FASHION ONLY) ---
+  // --- Generate Logic (FASHION PHOTO) ---
   const generatePrompts = async () => {
     if (!activeApiKey) { setFeedback({ type: 'error', message: 'Yêu cầu API Key.' }); setIsManagingKeys(true); return; }
-    setIsLoading(true); setFeedback(null); setGeneratedScenes([]);
+    setIsLoading(true); setFeedback(null); setGeneratedImages([]);
 
-    let userPrompt = `Create a Fashion Video Script (Ingredients Mode).`;
-    userPrompt += `\n**Creative Idea / Theme:** "${formData.idea.trim() || 'Showcase the collection'}"`;
-    userPrompt += `\n**Specs:**`;
-    userPrompt += `\n- Fashion Style: ${formData.fashionStyle}`;
-    userPrompt += `\n- Camera Mood: ${formData.cameraMood}`;
-    userPrompt += `\n- Total Scenes: ${formData.sceneCount}`;
+    let userPrompt = `TASK: Generate exactly ${formData.imageCount} professional commercial fashion photography prompts.`;
+    userPrompt += `\n**Campaign Concept:** "${formData.idea.trim() || 'High-End Product Launch'}"`;
+    userPrompt += `\n**Base Specs:** Style: ${formData.fashionStyle}, Mood: ${formData.cameraMood}`;
     
+    // Add New Specs
+    userPrompt += `\n**TECHNICAL REQUIREMENTS:**`;
+    userPrompt += `\n- **Aspect Ratio:** ${formData.aspectRatio}`;
+    
+    // Logic for Mixed Angle
+    if (formData.shotAngle === 'Mixed') {
+        userPrompt += `\n- **Shot Angle:** MIXED/RANDOM. You must vary the angle for each prompt (e.g., Wide, Full Body, Close Up, Low Angle).`;
+    } else {
+        userPrompt += `\n- **Shot Angle:** ${formData.shotAngle}`;
+    }
+    
+    userPrompt += `\n- **Quality:** ${formData.quality}`;
+    userPrompt += `\n- **Face Fidelity:** Preserve ${formData.faceStrength}% of the Model's facial features from Image 1.`;
+
     // Explicitly map inputs to the strict roles
     const img1 = formData.fashionImages[0];
     const img2 = formData.fashionImages[1];
     const img3 = formData.fashionImages[2];
+    const img4 = formData.fashionImages[3]; // Accessory 1
+    const img5 = formData.fashionImages[4]; // Accessory 2
+    const img6 = formData.fashionImages[5]; // Accessory 3
+    const img7 = formData.fashionImages[6]; // Accessory 4
+    const img8 = formData.fashionImages[7]; // Accessory 5
+    const img9 = formData.fashionImages[8]; // Accessory 6
+    const img10 = formData.fashionImages[9]; // Accessory 7
 
-    if (img1) userPrompt += `\n- Image 1 (Slot 0): REQUIRED MODEL FACE/IDENTITY source.`;
-    else userPrompt += `\n- Image 1: Not provided (Generate model based on: ${formData.modelDemographic})`;
+    userPrompt += `\n\n**VISUAL ANALYSIS INSTRUCTIONS:**`;
 
-    if (img2) userPrompt += `\n- Image 2 (Slot 1): REQUIRED OUTFIT source.`;
-    else userPrompt += `\n- Image 2: Not provided (Generate outfit based on style)`;
+    if (img1) userPrompt += `\n- **INGREDIENT 1 (MODEL):** Analyze and preserve the model's exact features (hair, face, body). Apply Face Fidelity: ${formData.faceStrength}%.`;
+    else userPrompt += `\n- Ingredient 1: Not provided. (Cast a ${formData.modelDemographic})`;
 
-    if (img3) userPrompt += `\n- Image 3 (Slot 2): REQUIRED SETTING source.`;
-    else userPrompt += `\n- Image 3: Not provided (Generate setting based on: ${formData.setting})`;
+    if (img2) userPrompt += `\n- **INGREDIENT 2 (THE OUTFIT - HERO PRODUCT):** Analyze and describe the outfit in extreme detail. The prompt MUST depict the model wearing this exact outfit.`;
+    else userPrompt += `\n- Ingredient 2: Not provided. (Design: ${formData.fashionStyle})`;
 
-    userPrompt += `\n\nINSTRUCTION: Ensure the Model from Img 1 is wearing the Outfit from Img 2 inside the Setting from Img 3.`;
+    if (img3) userPrompt += `\n- **INGREDIENT 3 (SETTING):** Analyze the environment. The final image must take place here.`;
+    else userPrompt += `\n- Ingredient 3: Not provided. (Location: ${formData.setting})`;
+
+    if (img4) userPrompt += `\n- **INGREDIENT 4 (ACCESSORY 1):** Analyze this accessory. The model MUST be wearing/holding it.`;
+    if (img5) userPrompt += `\n- **INGREDIENT 5 (ACCESSORY 2):** Analyze this accessory. The model MUST be wearing/holding it.`;
+    if (img6) userPrompt += `\n- **INGREDIENT 6 (ACCESSORY 3):** Analyze this accessory. The model MUST be wearing/holding it.`;
+    if (img7) userPrompt += `\n- **INGREDIENT 7 (ACCESSORY 4):** Analyze this accessory. The model MUST be wearing/holding it.`;
+    if (img8) userPrompt += `\n- **INGREDIENT 8 (ACCESSORY 5):** Analyze this accessory. The model MUST be wearing/holding it.`;
+    if (img9) userPrompt += `\n- **INGREDIENT 9 (ACCESSORY 6):** Analyze this accessory. The model MUST be wearing/holding it.`;
+    if (img10) userPrompt += `\n- **INGREDIENT 10 (ACCESSORY 7):** Analyze this accessory. The model MUST be wearing/holding it.`;
+
+    userPrompt += `\n\n**OUTPUT REQUIREMENT:** Create ${formData.imageCount} distinct, naturally phrased, photorealistic image prompts. Ensure the model is wearing the outfit naturally within the setting. Focus on commercial appeal, sharp focus, and high-quality textures.`;
 
     const parts: any[] = [{ text: userPrompt }];
     
-    // Attach Images for Analysis
+    // Attach Images for Analysis in order 0 to 9
     formData.fashionImages.forEach(img => {
         if (img) {
              parts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } });
@@ -421,11 +464,11 @@ const App: React.FC = () => {
                 items: {
                   type: Type.OBJECT,
                   properties: {
-                    scene_number: { type: Type.INTEGER },
-                    scene_title: { type: Type.STRING },
+                    image_number: { type: Type.INTEGER },
+                    image_title: { type: Type.STRING },
                     prompt_text: { type: Type.STRING },
                   },
-                  required: ['scene_number', 'scene_title', 'prompt_text'],
+                  required: ['image_number', 'image_title', 'prompt_text'],
                 },
               },
             },
@@ -438,7 +481,7 @@ const App: React.FC = () => {
       if (!responseText) throw new Error('AI response was empty.');
       const parsedData = JSON.parse(responseText);
       if (parsedData.prompts && Array.isArray(parsedData.prompts)) {
-        setGeneratedScenes(parsedData.prompts);
+        setGeneratedImages(parsedData.prompts);
         if (ipcRenderer) ipcRenderer.invoke('increment-prompt-count').catch(console.error);
       } else { throw new Error('AI response did not contain a valid "prompts" array.'); }
     } catch (err: any) {
@@ -450,39 +493,52 @@ const App: React.FC = () => {
   
   // --- Export Logic (Excel) ---
   const startProcess = async () => {
-    if (generatedScenes.length === 0) { setFeedback({ type: 'error', message: 'Không có kịch bản.' }); return; }
+    if (generatedImages.length === 0) { setFeedback({ type: 'error', message: 'Không có prompt.' }); return; }
     setFeedback(null);
     try {
-      const safeProjectName = (formData.projectName.trim() || 'Fashion_Runway').replace(/[^a-zA-Z0-9_]/g, '_');
+      const safeProjectName = (formData.projectName.trim() || 'Fashion_Shoot').replace(/[^a-zA-Z0-9_]/g, '_');
       const safeFileName = safeProjectName.toLowerCase();
       const fullFileName = `${safeFileName}.xlsx`;
       
       const img1 = formData.fashionImages[0] ? (formData.fashionImages[0].file as any).path : '';
       const img2 = formData.fashionImages[1] ? (formData.fashionImages[1].file as any).path : '';
       const img3 = formData.fashionImages[2] ? (formData.fashionImages[2].file as any).path : '';
+      const img4 = formData.fashionImages[3] ? (formData.fashionImages[3].file as any).path : '';
+      const img5 = formData.fashionImages[4] ? (formData.fashionImages[4].file as any).path : '';
+      const img6 = formData.fashionImages[5] ? (formData.fashionImages[5].file as any).path : '';
+      const img7 = formData.fashionImages[6] ? (formData.fashionImages[6].file as any).path : '';
+      const img8 = formData.fashionImages[7] ? (formData.fashionImages[7].file as any).path : '';
+      const img9 = formData.fashionImages[8] ? (formData.fashionImages[8].file as any).path : '';
+      const img10 = formData.fashionImages[9] ? (formData.fashionImages[9].file as any).path : '';
 
-      // Determine TYPE_VIDEO based on image uploads
-      // If ANY image slot has a file, we treat it as IN2V logic
-      const hasImages = !!img1 || !!img2 || !!img3;
-      const typeVideoValue = hasImages ? 'IN2V' : '';
+      // Determine TYPE_JOB based on image uploads
+      const hasImages = !!img1 || !!img2 || !!img3 || !!img4 || !!img5 || !!img6 || !!img7 || !!img8 || !!img9 || !!img10;
+      const typeJobValue = hasImages ? 'IN2IMG' : 'TXT2IMG';
 
-      const dataForTracker: VideoJob[] = generatedScenes.map((p, index) => ({
+      const dataForTracker: ImageJob[] = generatedImages.map((p, index) => ({
           id: `Job_${index + 1}`,
           prompt: p.prompt_text,
           imagePath: img1, 
           imagePath2: img2, 
           imagePath3: img3,
+          imagePath4: img4,
+          imagePath5: img5,
+          imagePath6: img6,
+          imagePath7: img7,
+          imagePath8: img8,
+          imagePath9: img9,
+          imagePath10: img10,
           status: 'Pending',
-          videoName: `${safeProjectName}_${index + 1}`,
-          typeVideo: typeVideoValue,
+          fileName: `${safeProjectName}_${index + 1}.png`,
+          typeJob: typeJobValue,
       }));
 
       const dataForExcel = dataForTracker.map(job => ({ ...job, status: '' }));
-      const headers = [['JOB_ID', 'PROMPT', 'IMAGE_PATH', 'IMAGE_PATH_2', 'IMAGE_PATH_3', 'STATUS', 'VIDEO_NAME', 'TYPE_VIDEO']];
+      const headers = [['JOB_ID', 'PROMPT', 'IMAGE_PATH', 'IMAGE_PATH_2', 'IMAGE_PATH_3', 'IMAGE_PATH_4', 'IMAGE_PATH_5', 'IMAGE_PATH_6', 'IMAGE_PATH_7', 'IMAGE_PATH_8', 'IMAGE_PATH_9', 'IMAGE_PATH_10', 'STATUS', 'IMAGE_NAME', 'TYPE_JOB', 'GENERATED_PATH']];
       
       const worksheet = XLSX.utils.aoa_to_sheet(headers);
-      XLSX.utils.sheet_add_json(worksheet, dataForExcel, { header: ['id', 'prompt', 'imagePath', 'imagePath2', 'imagePath3', 'status', 'videoName', 'typeVideo'], skipHeader: true, origin: 'A2' });
-      worksheet['!cols'] = [{ wch: 15 }, { wch: 150 }, { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 15 }, { wch: 30 }, { wch: 15 }];
+      XLSX.utils.sheet_add_json(worksheet, dataForExcel, { header: ['id', 'prompt', 'imagePath', 'imagePath2', 'imagePath3', 'imagePath4', 'imagePath5', 'imagePath6', 'imagePath7', 'imagePath8', 'imagePath9', 'imagePath10', 'status', 'fileName', 'typeJob', 'generatedFilePath'], skipHeader: true, origin: 'A2' });
+      worksheet['!cols'] = [{ wch: 15 }, { wch: 150 }, { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 40 }, { wch: 15 }, { wch: 30 }, { wch: 15 }, { wch: 40 }];
       
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Prompts');
@@ -495,8 +551,7 @@ const App: React.FC = () => {
         else if (result.error && result.error !== 'Save dialog canceled') throw new Error(`${result.error}`);
       } else { XLSX.writeFile(workbook, fullFileName); setFeedback({ type: 'success', message: 'Đang tải file Excel.' }); }
 
-      // Note: We no longer track duration in seconds, defaulting to 0 as it's not critical for generation
-      const newTrackedFile: TrackedFile = { name: fullFileName, jobs: dataForTracker, path: filePath, targetDurationSeconds: 0 };
+      const newTrackedFile: TrackedFile = { name: fullFileName, jobs: dataForTracker, path: filePath };
       setTrackedFiles(prevFiles => [...prevFiles, newTrackedFile]);
       setActiveTrackerFileIndex(trackedFiles.length);
       setActiveTab('tracker');
@@ -529,56 +584,16 @@ const App: React.FC = () => {
   
   const handleLinkVideo = async (jobId: string, fileIndex: number) => {
     if (!ipcRenderer) return;
-    const result = await ipcRenderer.invoke('open-video-file-dialog');
+    const result = await ipcRenderer.invoke('open-video-file-dialog'); // This now looks for images
     if (result.success && result.path) {
         setTrackedFiles(prevFiles => {
             const newFiles = [...prevFiles];
             const fileToUpdate = { ...newFiles[fileIndex] };
-            fileToUpdate.jobs = fileToUpdate.jobs.map(job => job.id === jobId ? { ...job, videoPath: result.path } : job);
+            fileToUpdate.jobs = fileToUpdate.jobs.map(job => job.id === jobId ? { ...job, generatedFilePath: result.path } : job);
             newFiles[fileIndex] = fileToUpdate;
             return newFiles;
         });
     }
-  };
-  
-  const executeCombineForFile = async (file: TrackedFile, mode: 'normal' | 'timed') => {
-      if (!ipcRenderer || !ffmpegFound) return false;
-      const completedJobs = file.jobs.filter(j => j.status === 'Completed' && j.videoPath);
-      if (completedJobs.length < 1) { setFeedback({ type: 'error', message: `File "${file.name}" không có video hoàn thành.` }); return false; }
-      if (mode === 'timed' && (!file.targetDurationSeconds || file.targetDurationSeconds <= 0)) { setFeedback({ type: 'error', message: `File "${file.name}" thiếu thời lượng.` }); return false; }
-      try {
-          const result = await ipcRenderer.invoke('execute-ffmpeg-combine', { jobs: completedJobs, targetDuration: file.targetDurationSeconds, mode: mode, excelFileName: file.name });
-          if (result.success) { setLastCombinedVideoPath(result.filePath); return true; }
-          else if (result.error && result.error !== 'Save dialog canceled') throw new Error(String(result.error));
-          else return false;
-      } catch (err: any) { throw err; }
-  };
-  
-  const handleExecuteCombine = async (mode: 'normal' | 'timed') => {
-      const currentFile = trackedFiles[activeTrackerFileIndex];
-      if (!currentFile) return;
-      setIsCombiningVideo(true); setLastCombinedVideoPath(null); setFeedback({ type: 'info', message: `Đang ghép "${currentFile.name}"...` });
-      try {
-          const success = await executeCombineForFile(currentFile, mode);
-          if (success) setFeedback({ type: 'success', message: `Ghép Thành Công!` });
-          else setFeedback(null);
-      } catch (err: any) { setFeedback({ type: 'error', message: `Lỗi Ghép: ${(err as any).message}` }); } finally { setIsCombiningVideo(false); }
-  };
-
-  const handleCombineAllFiles = async () => {
-    if (trackedFiles.length === 0 || !ipcRenderer || !ffmpegFound) return;
-    setIsCombiningAll(true); setLastCombinedVideoPath(null); setFeedback({ type: 'info', message: 'Đang ghép hàng loạt...' });
-    const filesToProcess = trackedFiles.map(file => ({ name: file.name, jobs: file.jobs.filter(j => j.status === 'Completed' && j.videoPath) })).filter(file => file.jobs.length > 0);
-    if (filesToProcess.length === 0) { setFeedback({ type: 'error', message: 'Không có video để ghép.' }); setIsCombiningAll(false); return; }
-    try {
-      const result = await ipcRenderer.invoke('execute-ffmpeg-combine-all', filesToProcess);
-      if (result.canceled) setFeedback({ type: 'info', message: 'Đã hủy.' });
-      else {
-        const { successes, failures } = result;
-        const finalMessage = `Xong. Thành công: ${successes.length}. Lỗi: ${failures.length}.`;
-        setFeedback({ type: failures.length > 0 && successes.length === 0 ? 'error' : failures.length > 0 ? 'info' : 'success', message: finalMessage });
-      }
-    } catch (err: any) { setFeedback({ type: 'error', message: `Lỗi Hàng Loạt: ${err.message}` }); } finally { setIsCombiningAll(false); }
   };
   
   const handleCopyPath = async (path: string | undefined) => {
@@ -599,7 +614,6 @@ const App: React.FC = () => {
     const result = await ipcRenderer.invoke('set-tool-flow-path');
     if (result.success) setFeedback({ type: 'success', message: `Đã cập nhật: ${result.path}` }); else if (result.error && result.error !== 'User canceled selection.') setFeedback({ type: 'error', message: `Lỗi: ${result.error}` }); else setFeedback(null);
   };
-  const handlePlayVideo = (videoPath: string | undefined) => { if (ipcRenderer && videoPath) ipcRenderer.send('open-video-path', videoPath); };
   const handleShowInFolder = (videoPath: string | undefined) => { if (ipcRenderer && videoPath) ipcRenderer.send('show-video-in-folder', videoPath); };
   const handleDeleteVideo = async (jobId: string, videoPath: string | undefined) => {
       if (!ipcRenderer || !videoPath) return;
@@ -609,12 +623,12 @@ const App: React.FC = () => {
               const newFiles = [...prevFiles];
               if (newFiles[activeTrackerFileIndex]) {
                   const fileToUpdate = { ...newFiles[activeTrackerFileIndex] };
-                  fileToUpdate.jobs = fileToUpdate.jobs.map(job => job.id === jobId ? { ...job, videoPath: undefined } : job);
+                  fileToUpdate.jobs = fileToUpdate.jobs.map(job => job.id === jobId ? { ...job, generatedFilePath: undefined } : job);
                   newFiles[activeTrackerFileIndex] = fileToUpdate;
               }
               return newFiles;
           });
-          setFeedback({ type: 'success', message: 'Đã xóa Video.' });
+          setFeedback({ type: 'success', message: 'Đã xóa File.' });
       } else if (result.error && result.error !== 'User canceled deletion.') setFeedback({ type: 'error', message: `Lỗi: ${result.error}` });
   };
   const handleRetryJob = async (jobId: string) => {
@@ -634,10 +648,10 @@ const App: React.FC = () => {
   const handleReloadVideos = async () => {
     const currentFile = trackedFiles[activeTrackerFileIndex];
     if (!ipcRenderer || !currentFile?.path) return;
-    setFeedback({ type: 'info', message: `Đang quét video...` });
+    setFeedback({ type: 'info', message: `Đang quét file...` });
     const filePath = currentFile.path;
     try {
-        const result: { success: boolean; jobs: VideoJob[]; error?: string; } = await ipcRenderer.invoke('find-videos-for-jobs', { jobs: currentFile.jobs, excelFilePath: filePath });
+        const result: { success: boolean; jobs: ImageJob[]; error?: string; } = await ipcRenderer.invoke('find-videos-for-jobs', { jobs: currentFile.jobs, excelFilePath: filePath });
         if (result.success) {
             setTrackedFiles(prevFiles => prevFiles.map(file => file.path === filePath ? { ...file, jobs: result.jobs } : file));
             const discoveryKey = `${filePath}-${result.jobs.map(j => j.status).join(',')}`;
@@ -648,8 +662,8 @@ const App: React.FC = () => {
   };
   const handleSavePreset = () => {
       if (!newPresetName.trim()) { setFeedback({ type: 'error', message: 'Nhập tên cài đặt.' }); return; }
-      const { model, fashionStyle, modelDemographic, setting, cameraMood, temperature, sceneCount } = formData;
-      const settingsToSave: Partial<FormData> = { model, fashionStyle, modelDemographic, setting, cameraMood, temperature, sceneCount };
+      const { model, fashionStyle, modelDemographic, setting, cameraMood, temperature, imageCount, quality, faceStrength, shotAngle, aspectRatio } = formData;
+      const settingsToSave: Partial<FormData> = { model, fashionStyle, modelDemographic, setting, cameraMood, temperature, imageCount, quality, faceStrength, shotAngle, aspectRatio };
       const newPreset: Preset = { id: crypto.randomUUID(), name: newPresetName.trim(), settings: settingsToSave };
       const updatedPresets = [...presets, newPreset];
       setPresets(updatedPresets); setNewPresetName('');
@@ -668,6 +682,16 @@ const App: React.FC = () => {
       setSelectedPresetId('');
       if (isElectron && ipcRenderer) ipcRenderer.invoke('save-app-config', { presets: updatedPresets });
       setFeedback({ type: 'info', message: 'Đã xóa cài đặt.' });
+  };
+  
+  const handleCheckUpdate = async () => {
+      if (!ipcRenderer) return;
+      setFeedback({ type: 'info', message: 'Đang kiểm tra cập nhật...' });
+      const result = await ipcRenderer.invoke('check-for-updates');
+      if (!result.success) {
+          setFeedback({ type: 'error', message: result.message });
+      }
+      // If success, logic is handled by 'update-status' event listener
   };
 
   const currentFile = trackedFiles[activeTrackerFileIndex];
@@ -708,7 +732,7 @@ const App: React.FC = () => {
                     onClick={() => setActiveTab('generator')}
                     className={`px-8 py-3 text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'generator' ? 'bg-black text-white' : 'text-gray-400 hover:text-black hover:bg-gray-50'}`}
                 >
-                    Tạo Kịch Bản
+                    Tạo Prompt Ảnh
                 </button>
                 <button 
                     onClick={() => setActiveTab('tracker')}
@@ -719,6 +743,10 @@ const App: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-6">
+                 {/* Update Button */}
+                 <button onClick={handleCheckUpdate} disabled={checkingUpdate} className={`text-gray-400 hover:text-black transition transform hover:scale-110 ${checkingUpdate ? 'animate-spin' : ''}`} title="Kiểm tra cập nhật">
+                    <UpdateIcon className="w-5 h-5" />
+                 </button>
                  {/* Stats Button */}
                  <button onClick={() => setShowStats(true)} className="text-gray-400 hover:text-black transition transform hover:scale-110">
                     <ChartIcon className="w-5 h-5" />
@@ -755,19 +783,16 @@ const App: React.FC = () => {
 
                     generatePrompts={generatePrompts}
                     isLoading={isLoading}
-                    generatedScenes={generatedScenes}
+                    generatedImages={generatedImages}
                     startProcess={startProcess}
                     feedback={feedback}
-                    lastCombinedVideoPath={lastCombinedVideoPath}
-                    handlePlayVideo={handlePlayVideo}
+                    handleOpenImage={handleShowInFolder}
                 />
              </div>
              
              <div className={`absolute inset-0 transition-opacity duration-300 ${activeTab === 'tracker' ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
                 <TrackerTab 
                     feedback={feedback}
-                    lastCombinedVideoPath={lastCombinedVideoPath}
-                    handlePlayVideo={handlePlayVideo}
                     trackedFiles={trackedFiles}
                     handleOpenNewFile={handleOpenNewFile}
                     activeTrackerFileIndex={activeTrackerFileIndex}
@@ -775,7 +800,6 @@ const App: React.FC = () => {
                     handleCloseTrackerTab={handleCloseTrackerTab}
                     stats={trackerStats}
                     currentFile={trackedFiles[activeTrackerFileIndex] || null}
-                    formatDuration={(s) => s ? `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}` : '0:00'}
                     handleReloadVideos={handleReloadVideos}
                     handleRetryStuckJobs={handleRetryStuckJobs}
                     handleOpenToolFlows={handleOpenToolFlows}
@@ -783,11 +807,6 @@ const App: React.FC = () => {
                     handleOpenFolder={handleOpenFolder}
                     handleCopyPath={handleCopyPath}
                     getFolderPath={getFolderPath}
-                    ffmpegFound={ffmpegFound}
-                    handleCombineAllFiles={handleCombineAllFiles}
-                    isCombiningAll={isCombiningAll}
-                    isCombiningVideo={isCombiningVideo}
-                    handleExecuteCombine={handleExecuteCombine}
                     handleLinkVideo={handleLinkVideo}
                     handleShowInFolder={handleShowInFolder}
                     handleDeleteVideo={handleDeleteVideo}
